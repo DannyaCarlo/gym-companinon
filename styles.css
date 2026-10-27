@@ -8,14 +8,16 @@
 }
 :root { color-scheme: dark; --background: #100c16; --card: #201628; --line: #51335e; --text: #fff2e3; --muted: #c5b2cd; --accent: #ff9a3c; }
 * { box-sizing: border-box; }
-body { margin: 0; background: radial-gradient(ellipse at top left, #44205280, transparent 65%), radial-gradient(ellipse at bottom right, #6b2e1433, transparent 60%), var(--background); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+body { margin: 0; background: var(--background); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; isolation: isolate; }
+/* A fixed layer keeps the artwork steady while the app scrolls on phones. */
+body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(#100c1638, #100c1655), url('assets/backgrounds/ghost-forest.webp') center top / cover no-repeat; }
 main { width: min(100% - 32px, 620px); margin: 40px auto; }
-header { margin-bottom: 30px; border-left: 3px solid var(--accent); padding-left: 16px; }
+header { margin-bottom: 30px; border-left: 3px solid var(--accent); padding-left: 16px; text-shadow: 0 2px 8px #100c16; }
 .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--accent); }
 h1 { font-size: clamp(30px, 7vw, 42px); letter-spacing: -1.5px; margin: 10px 0; }
 h1 span { color: var(--accent); }
 p, footer { color: var(--muted); font-size: 14px; }
-.card { background: var(--card); border: 1px solid var(--line); padding: 24px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 12px 32px #00000030; }
+.card { background: #201628e8; border: 1px solid var(--line); padding: 24px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 12px 32px #00000030; }
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 h2 { margin: 0; font-size: 19px; }
 .tag { color: #d5b1f5; font-size: 10px; letter-spacing: 1px; }
