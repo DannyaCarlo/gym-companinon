@@ -1,6 +1,11 @@
 // STATE: the information the app remembers while the page is open.
 const timer = { phase: 'ready', running: false, elapsed: 0, startedAt: 0 };
 let plates = []; // Store one side only; every plate represents a matching pair.
+let unit = 'lb';
+// Keep original pound values internally, so switching units never loses precision.
+function displayWeight(pounds) {
+  return String(Number((unit === 'kg' ? pounds * 0.45359237 : pounds).toFixed(2)));
+}
 const plateTypes = [
   { weight: 45, color: '#3971b8', height: 120 },
   { weight: 35, color: '#c5a42e', height: 108 },
@@ -67,8 +72,16 @@ requestAnimationFrame(animateTimer);
 function renderBar() {
   const bar = Number($('bar-weight').value);
   const perSide = plates.reduce((sum, plate) => sum + plate.weight, 0);
-  $('total').textContent = bar + 2 * perSide;
-  $('breakdown').textContent = `${bar} lb bar + ${perSide} lb per side × 2`;
+  $('total').textContent = displayWeight(bar + 2 * perSide);
+  $('total-unit').textContent = `${unit} total`;
+  $('breakdown').textContent = `${displayWeight(bar)} ${unit} bar + ${displayWeight(perSide)} ${unit} per side × 2`;
+  $('unit-toggle').textContent = unit === 'lb' ? 'POUNDS ⇄' : 'KILOGRAMS ⇄';
+  $('unit-toggle').setAttribute('aria-label', `Switch to ${unit === 'lb' ? 'kilograms' : 'pounds'}`);
+  $('unit-toggle').setAttribute('aria-pressed', String(unit === 'kg'));
+  $('conversion-note').hidden = unit !== 'kg';
+  for (const option of $('bar-weight').options) {
+    option.textContent = `${displayWeight(Number(option.value))} ${unit} bar`;
+  }
   for (const side of ['left-plates', 'right-plates']) {
     $(side).replaceChildren();
     for (const plate of plates) {
@@ -76,15 +89,20 @@ function renderBar() {
       element.className = 'plate';
       element.style.backgroundColor = plate.color;
       element.style.height = `${plate.height}px`;
-      element.textContent = plate.weight;
+      element.textContent = displayWeight(plate.weight);
+      element.style.fontSize = unit === 'kg' ? '8px' : '10px';
       $(side).append(element);
     }
   }
-  $('rack').setAttribute('aria-label', `${bar} pound bar. Plates on each side: ${plates.map(p => p.weight + ' pounds').join(', ') || 'none'}. Total ${bar + 2 * perSide} pounds.`);
+  $('rack').setAttribute('aria-label', `${displayWeight(bar)} ${unit} bar. Plates on each side: ${plates.map(p => displayWeight(p.weight) + ' ' + unit).join(', ') || 'none'}. Total ${displayWeight(bar + 2 * perSide)} ${unit}.`);
   $('remove').disabled = plates.length === 0;
   $('clear').disabled = plates.length === 0;
   // Keep labels readable on narrow phone screens.
-  document.querySelectorAll('#plate-options button').forEach(button => { button.disabled = plates.length >= 8; });
+  document.querySelectorAll('#plate-options button').forEach((button, index) => {
+    button.disabled = plates.length >= 8;
+    button.textContent = `+ ${displayWeight(plateTypes[index].weight)} ${unit}`;
+    button.setAttribute('aria-label', `Add ${displayWeight(plateTypes[index].weight)} ${unit} to each side`);
+  });
 }
 for (const plate of plateTypes) {
   const button = document.createElement('button');
@@ -95,6 +113,10 @@ for (const plate of plateTypes) {
   $('plate-options').append(button);
 }
 $('bar-weight').addEventListener('change', renderBar);
+$('unit-toggle').addEventListener('click', () => {
+  unit = unit === 'lb' ? 'kg' : 'lb';
+  renderBar();
+});
 $('remove').addEventListener('click', () => { plates.pop(); renderBar(); });
 $('clear').addEventListener('click', () => { plates = []; renderBar(); });
 renderTimer();

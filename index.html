@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#100c16">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261027-ghost-background">
-  <script src="app.js?v=20261027-ms2" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261027-units">
+  <script src="app.js?v=20261027-units" defer></script>
 </head>
 <body>
   <main>
@@ -19,12 +19,13 @@
       <div class="controls"><button id="start" class="primary">Start</button><button id="pause" disabled>Pause</button><button id="reset">Reset</button></div>
     </section>
     <section class="card" aria-labelledby="bar-title">
-      <div class="section-heading"><h2 id="bar-title">Load your bar</h2><span class="tag">POUNDS</span></div>
+      <div class="section-heading"><h2 id="bar-title">Load your bar</h2><button id="unit-toggle" class="unit-toggle" type="button" aria-label="Switch to kilograms" aria-pressed="false">POUNDS ⇄</button></div>
       <label for="bar-weight">Bar weight</label>
       <select id="bar-weight"><option value="45">45 lb bar</option><option value="35">35 lb bar</option><option value="15">15 lb bar</option></select>
       <div class="rack" role="img" aria-label="45 pound bar with no plates" id="rack"><div class="upright left"></div><div class="upright right"></div><div class="bar"></div><div id="left-plates" class="plates left-plates"></div><div id="right-plates" class="plates right-plates"></div></div>
-      <div class="total" aria-live="polite"><strong id="total">45</strong> <span>lb total</span></div>
+      <div class="total" aria-live="polite"><strong id="total">45</strong> <span id="total-unit">lb total</span></div>
       <p id="breakdown" class="center">45 lb bar + 0 lb per side × 2</p>
+      <p id="conversion-note" class="center" hidden>Same equipment, converted to kg. Values rounded to 2 decimals.</p>
       <p class="plate-heading">Add plates <span>Each tap adds one per side</span></p>
       <div id="plate-options" class="plate-options"></div>
       <div class="controls secondary"><button id="remove" disabled>Remove last pair</button><button id="clear" disabled>Clear plates</button></div>
