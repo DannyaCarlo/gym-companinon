@@ -26,6 +26,7 @@ h2 { margin: 0; font-size: 19px; }
 .plate-options button { font-size: 14px; }
 .clock { font: 700 clamp(24px, 7.8vw, 56px)/1.5 'Gym Digital', ui-monospace, monospace; font-variant-numeric: tabular-nums; text-align: center; color: var(--accent); background: #100c08; border: 1px solid #49301c; border-radius: 12px; margin: 16px 0 24px; padding: 24px 8px; letter-spacing: 1px; white-space: nowrap; text-shadow: 0 0 8px #ff9a3c55, 0 0 20px #ff9a3c22; }
 .controls { display: flex; gap: 10px; }
+.sound-toggle { margin-top: 12px; min-height: 44px; font-size: 13px; }
 button, select { font: inherit; min-height: 48px; border-radius: 10px; border: 1px solid var(--line); color: var(--text); background: #34203f; padding: 10px 12px; }
 button { cursor: pointer; flex: 1; font-weight: 650; touch-action: manipulation; }
 button:hover:not(:disabled) { filter: brightness(1.13); }

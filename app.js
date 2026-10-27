@@ -18,6 +18,58 @@ const plateTypes = [
   { weight: 0.5, color: '#92713e', height: 32 }
 ];
 const $ = (id) => document.getElementById(id);
+let soundEnabled = true;
+let audioContext;
+let lastCountdownSecond = null;
+const activeBeeps = new Set();
+
+// A tap unlocks browser audio; the tones are generated locally, with no audio download.
+function unlockAudio() {
+  if (!soundEnabled) return;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    audioContext ??= new AudioContextClass();
+    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+  } catch { /* The timer still works if audio is unavailable. */ }
+}
+function stopBeeps() {
+  for (const oscillator of activeBeeps) {
+    try { oscillator.stop(); } catch { /* Already finished. */ }
+  }
+  activeBeeps.clear();
+}
+function beep(isStart = false) {
+  if (!soundEnabled || document.hidden) return true;
+  if (!audioContext || audioContext.state !== 'running') return false;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const now = audioContext.currentTime;
+  const duration = isStart ? 0.35 : 0.1;
+  oscillator.type = 'sine';
+  oscillator.frequency.value = isStart ? 1100 : 700;
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.15, now + 0.008);
+  gain.gain.linearRampToValueAtTime(0, now + duration);
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  activeBeeps.add(oscillator);
+  oscillator.onended = () => {
+    activeBeeps.delete(oscillator);
+    oscillator.disconnect();
+    gain.disconnect();
+  };
+  oscillator.start(now);
+  oscillator.stop(now + duration);
+  return true;
+}
+$('sound-toggle').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  $('sound-toggle').textContent = soundEnabled ? 'Sound: On' : 'Sound: Off';
+  $('sound-toggle').setAttribute('aria-pressed', String(soundEnabled));
+  if (soundEnabled) unlockAudio();
+  else stopBeeps();
+});
 
 // Use actual elapsed time, rather than counting interval callbacks.
 function elapsedTime() {
@@ -33,10 +85,16 @@ function formatTime(milliseconds) {
 function renderTimer() {
   let elapsed = elapsedTime();
   if (timer.phase === 'prep' && elapsed >= 10000) {
+    if (timer.running) beep(true);
     timer.phase = 'workout';
     timer.elapsed = elapsed - 10000;
     timer.startedAt = performance.now();
     elapsed = timer.elapsed;
+  }
+  if (timer.phase === 'prep' && timer.running) {
+    const remaining = Math.ceil((10000 - elapsed) / 1000);
+    // One beep per second, never a burst of missed beeps after switching tabs.
+    if (remaining !== lastCountdownSecond && beep()) lastCountdownSecond = remaining;
   }
   const display = formatTime(timer.phase === 'prep' ? 10000 - elapsed : elapsed);
   if ($('timer-display').textContent !== display) $('timer-display').textContent = display;
@@ -48,17 +106,21 @@ function renderTimer() {
 }
 $('start').addEventListener('click', () => {
   if (timer.running) return;
+  unlockAudio();
   if (timer.phase === 'ready') timer.phase = 'prep';
   timer.startedAt = performance.now();
   timer.running = true;
   renderTimer();
 });
 $('pause').addEventListener('click', () => {
+  stopBeeps();
   timer.elapsed = elapsedTime();
   timer.running = false;
   renderTimer();
 });
 $('reset').addEventListener('click', () => {
+  stopBeeps();
+  lastCountdownSecond = null;
   Object.assign(timer, { phase: 'ready', running: false, elapsed: 0, startedAt: 0 });
   renderTimer();
 });
