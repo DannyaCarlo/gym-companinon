@@ -8,6 +8,8 @@
 }
 :root { color-scheme: dark; --background: #100c16; --card: #201628; --line: #51335e; --text: #fff2e3; --muted: #c5b2cd; --accent: #ff9a3c; }
 * { box-sizing: border-box; }
+/* Allow vertical scrolling without pinch or double-tap zoom gestures. */
+html, body { touch-action: pan-y; }
 body { margin: 0; background: var(--background); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; isolation: isolate; }
 /* A fixed layer keeps the artwork steady while the app scrolls on phones. */
 body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(#100c1638, #100c1655), url('assets/backgrounds/ghost-forest.webp') center top / cover no-repeat; }
