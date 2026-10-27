@@ -18,13 +18,6 @@ const $ = (id) => document.getElementById(id);
 function elapsedTime() {
   return timer.elapsed + (timer.running ? performance.now() - timer.startedAt : 0);
 }
-function formatTime(milliseconds) {
-  const total = Math.max(0, Math.floor(milliseconds));
-  const minutes = String(Math.floor(total / 60000)).padStart(2, '0');
-  const seconds = String(Math.floor(total / 1000) % 60).padStart(2, '0');
-  const fraction = String(total % 1000).padStart(3, '0');
-  return `${minutes}:${seconds}:${fraction}`;
-}
 function renderTimer() {
   let elapsed = elapsedTime();
   if (timer.phase === 'prep' && elapsed >= 10000) {
@@ -33,8 +26,8 @@ function renderTimer() {
     timer.startedAt = performance.now();
     elapsed = timer.elapsed;
   }
-  const display = formatTime(timer.phase === 'prep' ? 10000 - elapsed : elapsed);
-  if ($('timer-display').textContent !== display) $('timer-display').textContent = display;
+  const seconds = timer.phase === 'prep' ? Math.max(0, Math.ceil((10000 - elapsed) / 1000)) : Math.floor(elapsed / 1000);
+  $('timer-display').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
   const status = timer.phase === 'ready' ? 'Ready · 10-second preparation countdown' : `${timer.phase === 'prep' ? 'Get into position' : 'Workout time'}${timer.running ? '' : ' · Paused'}`;
   if ($('timer-status').textContent !== status) $('timer-status').textContent = status;
   $('start').disabled = timer.running;
@@ -57,12 +50,7 @@ $('reset').addEventListener('click', () => {
   Object.assign(timer, { phase: 'ready', running: false, elapsed: 0, startedAt: 0 });
   renderTimer();
 });
-// Refresh with the screen; elapsed time still comes from the clock above.
-function animateTimer() {
-  if (timer.running) renderTimer();
-  requestAnimationFrame(animateTimer);
-}
-requestAnimationFrame(animateTimer);
+setInterval(renderTimer, 100);
 
 function renderBar() {
   const bar = Number($('bar-weight').value);
