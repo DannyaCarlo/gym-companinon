@@ -5,9 +5,12 @@ const plateTypes = [
   { weight: 45, color: '#3971b8', height: 120 },
   { weight: 35, color: '#c5a42e', height: 108 },
   { weight: 25, color: '#38916b', height: 94 },
+  { weight: 15, color: '#b54d70', height: 85 },
   { weight: 10, color: '#d16b43', height: 76 },
   { weight: 5, color: '#7f76b8', height: 60 },
-  { weight: 2.5, color: '#6d7c83', height: 46 }
+  { weight: 2.5, color: '#6d7c83', height: 46 },
+  { weight: 1, color: '#397f8b', height: 38 },
+  { weight: 0.5, color: '#92713e', height: 32 }
 ];
 const $ = (id) => document.getElementById(id);
 
