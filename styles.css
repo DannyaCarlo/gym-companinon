@@ -6,37 +6,37 @@
   font-style: normal;
   font-display: swap;
 }
-:root { color-scheme: dark; --background: #121918; --card: #1c2523; --line: #36413d; --text: #f2f5ee; --muted: #abb9af; --accent: #d4f78c; }
+:root { color-scheme: dark; --background: #100c16; --card: #201628; --line: #51335e; --text: #fff2e3; --muted: #c5b2cd; --accent: #ff9a3c; }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--background); color: var(--text); font-family: system-ui, sans-serif; }
+body { margin: 0; background: radial-gradient(ellipse at top left, #44205280, transparent 65%), radial-gradient(ellipse at bottom right, #6b2e1433, transparent 60%), var(--background); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
 main { width: min(100% - 32px, 620px); margin: 40px auto; }
-header { margin-bottom: 30px; }
+header { margin-bottom: 30px; border-left: 3px solid var(--accent); padding-left: 16px; }
 .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--accent); }
 h1 { font-size: clamp(30px, 7vw, 42px); letter-spacing: -1.5px; margin: 10px 0; }
 h1 span { color: var(--accent); }
 p, footer { color: var(--muted); font-size: 14px; }
-.card { background: var(--card); border: 1px solid var(--line); padding: 24px; border-radius: 20px; margin-bottom: 20px; }
+.card { background: var(--card); border: 1px solid var(--line); padding: 24px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 12px 32px #00000030; }
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 h2 { margin: 0; font-size: 19px; }
-.tag { color: var(--muted); font-size: 10px; letter-spacing: 1px; }
+.tag { color: #d5b1f5; font-size: 10px; letter-spacing: 1px; }
 .clock { font: 700 clamp(24px, 7.8vw, 56px)/1.5 'Gym Digital', ui-monospace, monospace; font-variant-numeric: tabular-nums; text-align: center; color: #ff4545; background: #100b0b; border: 1px solid #412323; border-radius: 12px; margin: 16px 0 24px; padding: 24px 8px; letter-spacing: 1px; white-space: nowrap; text-shadow: 0 0 8px #ff303055, 0 0 20px #ff303022; }
 .controls { display: flex; gap: 10px; }
-button, select { font: inherit; min-height: 48px; border-radius: 10px; border: 1px solid var(--line); color: var(--text); background: #27332f; padding: 10px 12px; }
+button, select { font: inherit; min-height: 48px; border-radius: 10px; border: 1px solid var(--line); color: var(--text); background: #34203f; padding: 10px 12px; }
 button { cursor: pointer; flex: 1; font-weight: 650; touch-action: manipulation; }
 button:hover:not(:disabled) { filter: brightness(1.13); }
 button:disabled { opacity: .4; cursor: default; }
 button:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.primary { background: var(--accent); color: #192214; border-color: var(--accent); }
+.primary { background: var(--accent); color: #24120a; border-color: var(--accent); }
 label { display: block; margin: 24px 0 8px; color: var(--muted); font-size: 13px; }
 select { width: 100%; }
 .rack { height: 160px; position: relative; margin-top: 16px; overflow: hidden; }
-.upright { position: absolute; top: 10px; bottom: 0; width: 9px; background: repeating-linear-gradient(to bottom, #45534d 0 14px, #202925 14px 19px); border-radius: 3px; }
+.upright { position: absolute; top: 10px; bottom: 0; width: 9px; background: repeating-linear-gradient(to bottom, #6a5376 0 14px, #24192c 14px 19px); border-radius: 3px; }
 .upright.left { left: 32%; }.upright.right { right: 32%; }
 .bar { position: absolute; height: 10px; background: linear-gradient(#dce3e1, #7a8783); left: 2%; right: 2%; top: 72px; border-radius: 4px; }
 .plates { position: absolute; width: 29%; top: 17px; height: 120px; display: flex; align-items: center; gap: 2px; }
 .left-plates { right: 69%; flex-direction: row-reverse; }.right-plates { left: 69%; }
 .plate { flex: 1 1 0; max-width: 25px; min-width: 0; border: 1px solid #ffffff55; border-radius: 4px; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 800; writing-mode: vertical-rl; text-shadow: 0 1px 3px #000; }
-.total { text-align: center; margin-top: 14px; }.total strong { font-size: 48px; letter-spacing: -2px; }.total span { color: var(--muted); }
+.total { text-align: center; margin-top: 14px; }.total strong { font-size: 48px; letter-spacing: -2px; color: var(--accent); }.total span { color: var(--muted); }
 .center { text-align: center; }
 .plate-heading { color: var(--text); margin-top: 26px; }.plate-heading span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
 .plate-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
