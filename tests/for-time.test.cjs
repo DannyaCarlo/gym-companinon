@@ -27,6 +27,9 @@ function setup() {
   get('bar-weight').options = [45, 35, 15].map(value => ({ value: String(value) }));
   get('cap-minutes').value = '10';
   get('cap-seconds').value = '0';
+  get('workout-mode').value = 'for-time';
+  get('duration-minutes').value = '10';
+  get('duration-seconds').value = '0';
   class AudioContext {
     state = 'running'; currentTime = 0; destination = {};
     createOscillator() {
@@ -44,6 +47,12 @@ function setup() {
     requestAnimationFrame(callback) { frame = callback; }
   });
   return { get, tones, tap(id) { get(id).events.click(); },
+    mode(value) { get('workout-mode').value = value; get('workout-mode').events.change(); },
+    duration(minutes, seconds) {
+      get('duration-minutes').value = String(minutes);
+      get('duration-seconds').value = String(seconds);
+      get('duration-seconds').events.input();
+    },
     advance(ms) { now += ms; frame(); },
     cap(minutes, seconds) {
       get('cap-enabled').checked = true;
@@ -154,4 +163,86 @@ test('muted timer still completes; barbell conversion still works', () => {
   app.get('plate-options').children[0].events.click();
   assert.equal(app.get('total').textContent, '135');
   app.tap('unit-toggle'); assert.equal(app.get('total').textContent, '61.23');
+});
+
+test('AMRAP defaults to ten minutes and completes exactly at zero after preparation', () => {
+  const app = setup(); app.mode('amrap');
+  assert.equal(app.display(), '10:00:000');
+  assert.equal(app.get('duration-settings').hidden, false);
+  assert.equal(app.get('cap-toggle-label').hidden, true);
+  assert.equal(app.get('timer-direction').textContent, 'COUNT DOWN');
+  app.tap('start');
+  assert.equal(app.display(), '00:10:000');
+  assert.equal(app.get('workout-mode').disabled, true);
+  assert.equal(app.get('duration-minutes').disabled, true);
+  for (let i = 0; i < 10; i++) app.advance(1000);
+  assert.equal(app.display(), '10:00:000');
+  assert.deepEqual(app.tones, [...Array(10).fill(700), 1100]);
+  app.advance(1234); assert.equal(app.display(), '09:58:766');
+  app.advance(598765); assert.equal(app.display(), '00:00:001');
+  app.advance(1); assert.equal(app.display(), '00:00:000');
+  assert.match(app.get('timer-status').textContent, /^AMRAP complete/);
+  assert.equal(app.tones.length, 12);
+  app.advance(9000); assert.equal(app.display(), '00:00:000');
+  assert.equal(app.tones.length, 12);
+  assert.equal(app.get('start').disabled, true);
+});
+
+test('AMRAP early Finish holds elapsed and remaining time, including when paused', () => {
+  for (const paused of [false, true]) {
+    const app = setup(); app.mode('amrap'); app.duration(1, 30);
+    app.tap('start'); app.advance(22345);
+    if (paused) { app.tap('pause'); app.advance(60000); }
+    app.tap('finish');
+    assert.equal(app.display(), '01:17:655');
+    assert.equal(app.get('timer-status').textContent, 'AMRAP ended early · Elapsed 00:12:345 · Remaining 01:17:655');
+    app.advance(200000); assert.equal(app.display(), '01:17:655');
+  }
+});
+
+test('AMRAP pause/resume works in preparation and workout and reset retains duration', () => {
+  const app = setup(); app.mode('amrap'); app.duration(0, 5);
+  app.tap('start'); app.advance(2000); app.tap('pause'); app.advance(30000);
+  assert.equal(app.display(), '00:08:000');
+  app.tap('start'); app.advance(8000); app.advance(1000); app.tap('pause');
+  app.advance(30000); assert.equal(app.display(), '00:04:000');
+  app.tap('reset'); assert.equal(app.get('reset-confirmation').hidden, false);
+  app.tap('cancel-reset'); app.tap('start'); app.advance(500);
+  assert.equal(app.display(), '00:03:500');
+  app.tap('reset'); app.tap('confirm-reset');
+  assert.equal(app.display(), '00:05:000');
+  assert.equal(app.get('workout-mode').disabled, false);
+  app.tap('start'); assert.equal(app.display(), '00:10:000');
+});
+
+test('AMRAP validates required length even when optional For Time cap is disabled', () => {
+  for (const [minutes, seconds] of [[0, 0], [-1, 5], [1, 60], [0, 0.5], ['', 5], [1000, 0]]) {
+    const app = setup(); app.mode('amrap'); app.duration(minutes, seconds); app.tap('start');
+    assert.equal(app.get('duration-error').hidden, false);
+    assert.equal(app.get('start').disabled, false);
+    assert.equal(app.tones.length, 0);
+  }
+});
+
+test('switching modes keeps separate duration settings and restores For Time behavior', () => {
+  const app = setup(); app.cap(0, 7); app.mode('amrap'); app.duration(0, 2);
+  app.tap('start'); app.advance(15000);
+  assert.equal(app.display(), '00:00:000');
+  assert.match(app.get('timer-status').textContent, /^AMRAP complete/);
+  app.tap('reset'); app.mode('for-time');
+  assert.equal(app.get('duration-settings').hidden, true);
+  assert.equal(app.get('cap-fields').hidden, false);
+  assert.equal(app.display(), '00:00:000');
+  app.tap('start'); app.advance(17000);
+  assert.equal(app.display(), '00:07:000');
+  assert.match(app.get('timer-status').textContent, /^Time cap reached/);
+  app.tap('reset'); app.mode('amrap'); assert.equal(app.display(), '00:02:000');
+});
+
+test('muted AMRAP handles a late frame without negative time or extra tones', () => {
+  const app = setup(); app.mode('amrap'); app.duration(0, 1);
+  app.tap('sound-toggle'); app.tap('start'); app.advance(100000);
+  assert.equal(app.display(), '00:00:000');
+  assert.equal(app.get('timer-status').textContent, 'AMRAP complete · Elapsed 00:01:000 · Remaining 00:00:000');
+  assert.equal(app.tones.length, 0);
 });
