@@ -1,5 +1,5 @@
 // STATE: the information the app remembers while the page is open.
-const timer = { mode: 'for-time', phase: 'ready', running: false, elapsed: 0, startedAt: 0, cap: null, result: null };
+const timer = { mode: 'for-time', phase: 'ready', running: false, elapsed: 0, startedAt: 0, cap: null, result: null, interval: null, rounds: 0, lastRound: 0 };
 let plates = []; // Store one side only; every plate represents a matching pair.
 let unit = 'lb';
 // Keep original pound values internally, so switching units never loses precision.
@@ -106,6 +106,31 @@ function readTimeCap() {
   if (timer.mode === 'amrap') return readDuration('duration');
   return $('cap-enabled').checked ? readDuration('cap') : null;
 }
+function readEmom(showError = true) {
+  const preset = $('emom-interval').value;
+  const interval = preset === 'custom' ? readDuration('interval', showError) : Number(preset);
+  const roundsText = $('emom-rounds').value.trim();
+  const rounds = Number(roundsText);
+  if (!/^\d+$/.test(roundsText) || rounds < 1 || rounds > 999) {
+    if (showError) {
+      $('emom-error').textContent = 'Enter a whole number of rounds from 1 to 999.';
+      $('emom-error').hidden = false;
+    }
+    return false;
+  }
+  if (!interval || (preset !== 'custom' && interval !== 60000 && interval !== 120000)) return false;
+  return { interval, rounds };
+}
+function updateEmomFields() {
+  $('interval-fields').hidden = $('emom-interval').value !== 'custom';
+  $('interval-error').hidden = true;
+  $('emom-error').hidden = true;
+  if (timer.phase === 'ready') renderTimer();
+}
+$('emom-interval').addEventListener('change', updateEmomFields);
+for (const id of ['interval-minutes', 'interval-seconds', 'emom-rounds']) {
+  $(id).addEventListener('input', updateEmomFields);
+}
 function updateCapFields() {
   $('cap-fields').hidden = timer.mode !== 'for-time' || !$('cap-enabled').checked;
   $('cap-error').hidden = true;
@@ -114,12 +139,16 @@ $('workout-mode').addEventListener('change', () => {
   if (timer.phase !== 'ready') return;
   timer.mode = $('workout-mode').value;
   $('duration-settings').hidden = timer.mode !== 'amrap';
-  $('cap-toggle-label').hidden = timer.mode === 'amrap';
+  $('cap-toggle-label').hidden = timer.mode !== 'for-time';
+  $('emom-settings').hidden = timer.mode !== 'emom';
+  $('interval-error').hidden = true;
+  $('emom-error').hidden = true;
   $('duration-error').hidden = true;
-  $('timer-direction').textContent = timer.mode === 'amrap' ? 'COUNT DOWN' : 'COUNT UP';
+  $('timer-direction').textContent = timer.mode === 'for-time' ? 'COUNT UP' : 'COUNT DOWN';
   $('mode-help').textContent = timer.mode === 'amrap'
     ? 'Complete as many rounds or reps as possible before time runs out.'
     : 'Count up until you finish, or set a time cap.';
+  if (timer.mode === 'emom') $('mode-help').textContent = 'Start a new round at each beep. Rest for the remainder of the interval.';
   updateCapFields();
   renderTimer();
 });
@@ -140,12 +169,20 @@ function renderTimer() {
     timer.elapsed = elapsed - 10000;
     timer.startedAt = performance.now();
     elapsed = timer.elapsed;
-    if (timer.running && (timer.cap === null || elapsed < timer.cap)) beep(true);
+    if (timer.running && timer.mode !== 'emom' && (timer.cap === null || elapsed < timer.cap)) beep(true);
   }
   // Clamp to the exact cap even if a frame arrives late or the tab was hidden.
   if (timer.phase === 'workout' && timer.cap !== null && elapsed >= timer.cap) {
-    completeWorkout(timer.mode === 'amrap' ? 'amrap-complete' : 'cap', timer.cap);
+    completeWorkout(timer.mode === 'for-time' ? 'cap' : `${timer.mode}-complete`, timer.cap);
     elapsed = timer.elapsed;
+  }
+  if (timer.mode === 'emom' && timer.phase === 'workout') {
+    const round = Math.floor(elapsed / timer.interval) + 1;
+    if (round !== timer.lastRound) {
+      // Derive rounds from elapsed time; don't accumulate drift or replay missed signals.
+      timer.lastRound = round;
+      if (timer.running) beep(true);
+    }
   }
   if (timer.phase === 'prep' && timer.running) {
     const remaining = Math.ceil((10000 - elapsed) / 1000);
@@ -154,9 +191,13 @@ function renderTimer() {
   }
   let shownTime = elapsed;
   if (timer.mode === 'amrap') shownTime = timer.phase === 'ready' ? (readDuration('duration', false) || 0) : Math.max(0, timer.cap - elapsed);
+  if (timer.mode === 'emom') {
+    shownTime = timer.phase === 'ready' ? (readEmom(false)?.interval || 0)
+      : timer.result === 'emom-complete' ? 0 : timer.interval - (elapsed % timer.interval);
+  }
   if (timer.phase === 'prep') shownTime = 10000 - elapsed;
   const display = formatTime(shownTime);
-  $('timer-display').setAttribute('aria-label', `${timer.phase === 'prep' ? 'Preparation time remaining' : timer.mode === 'amrap' ? 'Workout time remaining' : 'Workout time elapsed'} in minutes, seconds, and milliseconds`);
+  $('timer-display').setAttribute('aria-label', `${timer.phase === 'prep' ? 'Preparation time remaining' : timer.mode === 'emom' ? 'Interval time remaining' : timer.mode === 'amrap' ? 'Workout time remaining' : 'Workout time elapsed'} in minutes, seconds, and milliseconds`);
   if ($('timer-display').textContent !== display) $('timer-display').textContent = display;
   let status = 'Ready · 10-second preparation countdown';
   if (timer.phase === 'prep') status = `Get into position${timer.running ? '' : ' · Paused'}`;
@@ -166,23 +207,54 @@ function renderTimer() {
   if (timer.mode === 'amrap' && timer.phase === 'finished') {
     status = `${timer.result === 'amrap-complete' ? 'AMRAP complete' : 'AMRAP ended early'} · Elapsed ${formatTime(timer.elapsed)} · Remaining ${formatTime(shownTime)}`;
   }
+  $('round-status').hidden = timer.mode !== 'emom';
+  $('clock-round').hidden = timer.mode !== 'emom';
+  if (timer.mode === 'emom') {
+    const clockRound = timer.phase === 'ready' || timer.phase === 'prep' ? 0
+      : Math.min(timer.rounds, Math.floor(elapsed / timer.interval) + 1);
+    const clockRoundText = `R${clockRound}`;
+    if ($('clock-round').textContent !== clockRoundText) {
+      $('clock-round').textContent = clockRoundText;
+      $('clock-round').setAttribute('aria-label', `Round ${clockRound}`);
+    }
+    let roundStatus;
+    if (timer.phase === 'ready') {
+      const config = readEmom(false);
+      roundStatus = config ? `${config.rounds} rounds · Total workout ${formatTime(config.rounds * config.interval)}` : 'Choose an interval and number of rounds.';
+    } else if (timer.phase === 'prep') roundStatus = `Up next: Round 1 of ${timer.rounds}`;
+    else if (timer.phase === 'finished') roundStatus = `${Math.min(timer.rounds, Math.floor(elapsed / timer.interval))} of ${timer.rounds} rounds completed`;
+    else roundStatus = `Round ${Math.floor(elapsed / timer.interval) + 1} of ${timer.rounds}`;
+    if ($('round-status').textContent !== roundStatus) $('round-status').textContent = roundStatus;
+    if (timer.phase === 'workout') status = `EMOM · Interval remaining${timer.running ? '' : ' · Paused'}`;
+    if (timer.phase === 'finished') status = `${timer.result === 'emom-complete' ? 'EMOM complete' : 'EMOM ended early'} · Elapsed ${formatTime(elapsed)}`;
+  }
   if ($('timer-status').textContent !== status) $('timer-status').textContent = status;
   $('start').disabled = timer.running || timer.phase === 'finished';
   $('start').textContent = timer.phase === 'ready' || timer.phase === 'finished' ? 'Start' : 'Resume';
   $('pause').disabled = !timer.running;
   $('finish').disabled = timer.phase !== 'workout';
-  for (const id of ['workout-mode', 'cap-enabled', 'cap-minutes', 'cap-seconds', 'duration-minutes', 'duration-seconds']) {
+  for (const id of ['workout-mode', 'cap-enabled', 'cap-minutes', 'cap-seconds', 'duration-minutes', 'duration-seconds', 'emom-interval', 'interval-minutes', 'interval-seconds', 'emom-rounds']) {
     $(id).disabled = timer.phase !== 'ready';
   }
 }
 $('start').addEventListener('click', () => {
   if (timer.running || timer.phase === 'finished') return;
   if (timer.phase === 'ready') {
-    const cap = readTimeCap();
+    let cap;
+    if (timer.mode === 'emom') {
+      const config = readEmom();
+      if (!config) return;
+      timer.interval = config.interval;
+      timer.rounds = config.rounds;
+      timer.lastRound = 0;
+      cap = config.interval * config.rounds;
+    } else cap = readTimeCap();
     if (cap === false) return;
     timer.cap = cap;
     $('cap-error').hidden = true;
     $('duration-error').hidden = true;
+    $('interval-error').hidden = true;
+    $('emom-error').hidden = true;
     timer.phase = 'prep';
   }
   unlockAudio();
@@ -201,10 +273,12 @@ $('pause').addEventListener('click', () => {
 function resetTimer() {
   stopBeeps();
   lastCountdownSecond = null;
-  Object.assign(timer, { phase: 'ready', running: false, elapsed: 0, startedAt: 0, cap: null, result: null });
+  Object.assign(timer, { phase: 'ready', running: false, elapsed: 0, startedAt: 0, cap: null, result: null, interval: null, rounds: 0, lastRound: 0 });
   $('reset-confirmation').hidden = true;
   $('cap-error').hidden = true;
   $('duration-error').hidden = true;
+  $('interval-error').hidden = true;
+  $('emom-error').hidden = true;
   renderTimer();
 }
 $('finish').addEventListener('click', () => {

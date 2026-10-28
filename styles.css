@@ -28,6 +28,8 @@ h2 { margin: 0; font-size: 19px; }
 .plate-options button { font-size: 14px; }
 .clock { font: 700 clamp(24px, 7.8vw, 56px)/1.5 'Gym Digital', ui-monospace, monospace; font-variant-numeric: tabular-nums; text-align: center; color: var(--accent); background: #100c08; border: 1px solid #49301c; border-radius: 12px; margin: 16px 0 24px; padding: 24px 8px; letter-spacing: 1px; white-space: nowrap; text-shadow: 0 0 8px #ff9a3c55, 0 0 20px #ff9a3c22; }
 .controls { display: flex; gap: 10px; }
+.clock { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .35em; }
+.clock-round { font-size: .55em; letter-spacing: 1px; }
 .timer-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .finish { border-color: var(--accent); color: var(--accent); }
 .mode-help { font-size: 13px; }

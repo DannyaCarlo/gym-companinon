@@ -30,6 +30,10 @@ function setup() {
   get('workout-mode').value = 'for-time';
   get('duration-minutes').value = '10';
   get('duration-seconds').value = '0';
+  get('emom-interval').value = '60000';
+  get('interval-minutes').value = '1';
+  get('interval-seconds').value = '0';
+  get('emom-rounds').value = '10';
   class AudioContext {
     state = 'running'; currentTime = 0; destination = {};
     createOscillator() {
@@ -245,4 +249,135 @@ test('muted AMRAP handles a late frame without negative time or extra tones', ()
   assert.equal(app.display(), '00:00:000');
   assert.equal(app.get('timer-status').textContent, 'AMRAP complete · Elapsed 00:01:000 · Remaining 00:00:000');
   assert.equal(app.tones.length, 0);
+});
+
+function emom(app, seconds, rounds) {
+  app.mode('emom');
+  app.get('emom-interval').value = 'custom';
+  app.get('interval-minutes').value = '0';
+  app.get('interval-seconds').value = String(seconds);
+  app.get('emom-rounds').value = String(rounds);
+  app.get('emom-interval').events.change();
+}
+
+test('EMOM defaults to one minute, ten rounds and supports two-minute preset', () => {
+  const app = setup(); app.mode('emom');
+  assert.equal(app.display(), '01:00:000');
+  assert.equal(app.get('emom-settings').hidden, false);
+  assert.equal(app.get('cap-toggle-label').hidden, true);
+  assert.equal(app.get('round-status').textContent, '10 rounds · Total workout 10:00:000');
+  app.get('emom-interval').value = '120000'; app.get('emom-interval').events.change();
+  assert.equal(app.display(), '02:00:000');
+  assert.equal(app.get('round-status').textContent, '10 rounds · Total workout 20:00:000');
+  app.tap('start'); app.advance(10000); app.advance(120000);
+  assert.equal(app.display(), '02:00:000');
+  assert.equal(app.get('round-status').textContent, 'Round 2 of 10');
+  assert.equal(app.get('emom-rounds').disabled, true);
+});
+
+test('EMOM signals each round exactly once and completes after final full interval', () => {
+  const app = setup(); emom(app, 3, 3); app.tap('start');
+  for (let i = 0; i < 10; i++) app.advance(1000);
+  assert.equal(app.display(), '00:03:000');
+  assert.equal(app.get('round-status').textContent, 'Round 1 of 3');
+  assert.equal(app.tones.length, 11);
+  app.advance(2999); assert.equal(app.display(), '00:00:001');
+  app.advance(1); assert.equal(app.display(), '00:03:000');
+  assert.equal(app.get('round-status').textContent, 'Round 2 of 3');
+  assert.equal(app.tones.length, 12);
+  app.advance(1); assert.equal(app.tones.length, 12);
+  app.advance(2999); assert.equal(app.get('round-status').textContent, 'Round 3 of 3');
+  assert.equal(app.tones.length, 13);
+  app.advance(3000); assert.equal(app.display(), '00:00:000');
+  assert.equal(app.get('round-status').textContent, '3 of 3 rounds completed');
+  assert.equal(app.get('timer-status').textContent, 'EMOM complete · Elapsed 00:09:000');
+  assert.equal(app.tones.length, 14);
+  app.advance(10000); assert.equal(app.tones.length, 14);
+  assert.equal(app.get('start').disabled, true);
+});
+
+test('EMOM pause/resume preserves preparation and interval time without duplicate signals', () => {
+  const app = setup(); emom(app, 5, 2);
+  app.tap('start'); app.advance(1000); app.tap('pause'); app.advance(20000);
+  assert.equal(app.display(), '00:09:000');
+  app.tap('start'); app.advance(9000); app.advance(1500); app.tap('pause');
+  const count = app.tones.length;
+  app.advance(90000); assert.equal(app.display(), '00:03:500');
+  app.tap('start'); assert.equal(app.tones.length, count);
+  app.advance(3500); assert.equal(app.get('round-status').textContent, 'Round 2 of 2');
+  assert.equal(app.tones.length, count + 1);
+});
+
+test('EMOM Finish counts only fully completed rounds and holds the summary', () => {
+  for (const paused of [false, true]) {
+    const app = setup(); emom(app, 5, 3);
+    app.tap('start'); app.advance(16750);
+    if (paused) { app.tap('pause'); app.advance(10000); }
+    app.tap('finish');
+    assert.equal(app.get('round-status').textContent, '1 of 3 rounds completed');
+    assert.equal(app.get('timer-status').textContent, 'EMOM ended early · Elapsed 00:06:750');
+    assert.equal(app.display(), '00:03:250');
+    app.advance(100000); assert.equal(app.display(), '00:03:250');
+  }
+});
+
+test('EMOM validates custom interval and round count', () => {
+  for (const [seconds, rounds] of [[0, 2], [60, 2], [-1, 2], [1.5, 2], ['', 2], [5, 0], [5, 1.5], [5, ''], [5, 1000]]) {
+    const app = setup(); emom(app, seconds, rounds); app.tap('start');
+    assert.equal(app.get('start').disabled, false);
+    assert.equal(app.tones.length, 0);
+    assert.equal(app.get('interval-error').hidden && app.get('emom-error').hidden, false);
+  }
+});
+
+test('EMOM late frames catch up without replaying missed beeps, including one-round completion', () => {
+  const app = setup(); emom(app, 2, 5); app.tap('start'); app.advance(10000);
+  const before = app.tones.length;
+  app.advance(6500);
+  assert.equal(app.get('round-status').textContent, 'Round 4 of 5');
+  assert.equal(app.display(), '00:01:500');
+  assert.equal(app.tones.length, before + 1);
+  app.advance(20000);
+  assert.equal(app.get('timer-status').textContent, 'EMOM complete · Elapsed 00:10:000');
+  assert.equal(app.tones.length, before + 2);
+  const single = setup(); emom(single, 1, 1); single.tap('start'); single.advance(20000);
+  assert.equal(single.display(), '00:00:000');
+  assert.equal(single.get('round-status').textContent, '1 of 1 rounds completed');
+  assert.deepEqual(single.tones, [700, 1100]);
+});
+
+test('EMOM reset confirmation, mute and mode switching preserve settings', () => {
+  const app = setup(); emom(app, 4, 2); app.tap('sound-toggle');
+  app.tap('start'); app.advance(11000); app.tap('reset');
+  assert.equal(app.get('reset-confirmation').hidden, false);
+  app.tap('cancel-reset'); app.advance(1000); assert.equal(app.display(), '00:02:000');
+  app.tap('reset'); app.tap('confirm-reset'); assert.equal(app.display(), '00:04:000');
+  app.mode('amrap'); assert.equal(app.get('emom-settings').hidden, true);
+  assert.equal(app.get('round-status').hidden, true); assert.equal(app.display(), '10:00:000');
+  app.mode('for-time'); assert.equal(app.display(), '00:00:000');
+  app.mode('emom'); assert.equal(app.display(), '00:04:000');
+  app.tap('start'); app.advance(18000);
+  assert.equal(app.get('round-status').textContent, '2 of 2 rounds completed');
+  assert.equal(app.tones.length, 0);
+});
+
+test('digital round counter shows R0 during preparation, advances, holds and resets', () => {
+  const app = setup();
+  assert.equal(app.get('clock-round').hidden, true);
+  emom(app, 2, 3);
+  assert.equal(app.get('clock-round').hidden, false);
+  assert.equal(app.get('clock-round').textContent, 'R0');
+  app.tap('start'); app.advance(9999);
+  assert.equal(app.get('clock-round').textContent, 'R0');
+  app.advance(1); assert.equal(app.get('clock-round').textContent, 'R1');
+  app.advance(2000); assert.equal(app.get('clock-round').textContent, 'R2');
+  app.tap('pause'); app.advance(10000);
+  assert.equal(app.get('clock-round').textContent, 'R2');
+  app.tap('start'); app.advance(2000);
+  assert.equal(app.get('clock-round').textContent, 'R3');
+  app.advance(2000); assert.equal(app.get('clock-round').textContent, 'R3');
+  assert.equal(app.display(), '00:00:000');
+  app.tap('reset'); assert.equal(app.get('clock-round').textContent, 'R0');
+  app.mode('amrap'); assert.equal(app.get('clock-round').hidden, true);
+  app.mode('for-time'); assert.equal(app.get('clock-round').hidden, true);
 });
