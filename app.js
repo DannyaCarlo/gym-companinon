@@ -1,5 +1,5 @@
 // STATE: the information the app remembers while the page is open.
-const timer = { phase: 'ready', running: false, elapsed: 0, startedAt: 0 };
+const timer = { phase: 'ready', running: false, elapsed: 0, startedAt: 0, cap: null, result: null };
 let plates = []; // Store one side only; every plate represents a matching pair.
 let unit = 'lb';
 // Keep original pound values internally, so switching units never loses precision.
@@ -82,13 +82,45 @@ function formatTime(milliseconds) {
   const fraction = String(total % 1000).padStart(3, '0');
   return `${minutes}:${seconds}:${fraction}`;
 }
+function completeWorkout(reason, elapsed) {
+  stopBeeps();
+  Object.assign(timer, { phase: 'finished', running: false, elapsed, result: reason });
+  $('reset-confirmation').hidden = true;
+  beep(true);
+}
+function readTimeCap() {
+  if (!$('cap-enabled').checked) return null;
+  const minutesText = $('cap-minutes').value.trim();
+  const secondsText = $('cap-seconds').value.trim();
+  const minutes = Number(minutesText);
+  const seconds = Number(secondsText);
+  if (!/^\d+$/.test(minutesText) || !/^\d+$/.test(secondsText) || minutes > 999 || seconds > 59 || minutes * 60 + seconds === 0) {
+    $('cap-error').textContent = 'Enter 0–999 whole minutes and 0–59 whole seconds, with a cap of at least 1 second.';
+    $('cap-error').hidden = false;
+    return false;
+  }
+  return (minutes * 60 + seconds) * 1000;
+}
+function updateCapFields() {
+  $('cap-fields').hidden = !$('cap-enabled').checked;
+  $('cap-error').hidden = true;
+}
+$('cap-enabled').addEventListener('change', updateCapFields);
+for (const id of ['cap-minutes', 'cap-seconds']) {
+  $(id).addEventListener('input', () => { $('cap-error').hidden = true; });
+}
 function renderTimer() {
   let elapsed = elapsedTime();
   if (timer.phase === 'prep' && elapsed >= 10000) {
-    if (timer.running) beep(true);
     timer.phase = 'workout';
     timer.elapsed = elapsed - 10000;
     timer.startedAt = performance.now();
+    elapsed = timer.elapsed;
+    if (timer.running && (timer.cap === null || elapsed < timer.cap)) beep(true);
+  }
+  // Clamp to the exact cap even if a frame arrives late or the tab was hidden.
+  if (timer.phase === 'workout' && timer.cap !== null && elapsed >= timer.cap) {
+    completeWorkout('cap', timer.cap);
     elapsed = timer.elapsed;
   }
   if (timer.phase === 'prep' && timer.running) {
@@ -98,31 +130,69 @@ function renderTimer() {
   }
   const display = formatTime(timer.phase === 'prep' ? 10000 - elapsed : elapsed);
   if ($('timer-display').textContent !== display) $('timer-display').textContent = display;
-  const status = timer.phase === 'ready' ? 'Ready · 10-second preparation countdown' : `${timer.phase === 'prep' ? 'Get into position' : 'Workout time'}${timer.running ? '' : ' · Paused'}`;
+  let status = 'Ready · 10-second preparation countdown';
+  if (timer.phase === 'prep') status = `Get into position${timer.running ? '' : ' · Paused'}`;
+  if (timer.phase === 'workout') status = `For Time${timer.running ? '' : ' · Paused'}${timer.cap === null ? '' : ` · Cap ${formatTime(timer.cap)}`}`;
+  if (timer.phase === 'finished') status = `${timer.result === 'cap' ? 'Time cap reached' : 'Finished'} · Final time ${formatTime(timer.elapsed)}`;
   if ($('timer-status').textContent !== status) $('timer-status').textContent = status;
-  $('start').disabled = timer.running;
-  $('start').textContent = timer.phase === 'ready' ? 'Start' : 'Resume';
+  $('start').disabled = timer.running || timer.phase === 'finished';
+  $('start').textContent = timer.phase === 'ready' || timer.phase === 'finished' ? 'Start' : 'Resume';
   $('pause').disabled = !timer.running;
+  $('finish').disabled = timer.phase !== 'workout';
+  for (const id of ['workout-mode', 'cap-enabled', 'cap-minutes', 'cap-seconds']) {
+    $(id).disabled = timer.phase !== 'ready';
+  }
 }
 $('start').addEventListener('click', () => {
-  if (timer.running) return;
+  if (timer.running || timer.phase === 'finished') return;
+  if (timer.phase === 'ready') {
+    const cap = readTimeCap();
+    if (cap === false) return;
+    timer.cap = cap;
+    $('cap-error').hidden = true;
+    timer.phase = 'prep';
+  }
   unlockAudio();
-  if (timer.phase === 'ready') timer.phase = 'prep';
   timer.startedAt = performance.now();
   timer.running = true;
   renderTimer();
 });
 $('pause').addEventListener('click', () => {
+  renderTimer();
+  if (!timer.running) return;
   stopBeeps();
   timer.elapsed = elapsedTime();
   timer.running = false;
   renderTimer();
 });
-$('reset').addEventListener('click', () => {
+function resetTimer() {
   stopBeeps();
   lastCountdownSecond = null;
-  Object.assign(timer, { phase: 'ready', running: false, elapsed: 0, startedAt: 0 });
+  Object.assign(timer, { phase: 'ready', running: false, elapsed: 0, startedAt: 0, cap: null, result: null });
+  $('reset-confirmation').hidden = true;
+  $('cap-error').hidden = true;
   renderTimer();
+}
+$('finish').addEventListener('click', () => {
+  renderTimer();
+  if (timer.phase !== 'workout') return;
+  completeWorkout('finish', elapsedTime());
+  renderTimer();
+});
+$('reset').addEventListener('click', () => {
+  renderTimer();
+  if (timer.phase === 'prep' || timer.phase === 'workout') {
+    $('reset-confirmation').hidden = false;
+    $('cancel-reset').focus();
+  } else resetTimer();
+});
+$('cancel-reset').addEventListener('click', () => {
+  $('reset-confirmation').hidden = true;
+  $('reset').focus();
+});
+$('confirm-reset').addEventListener('click', () => {
+  resetTimer();
+  $('start').focus();
 });
 // Draw on each screen refresh, but measure time independently of frame rate.
 function animateTimer() {

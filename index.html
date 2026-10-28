@@ -6,17 +6,30 @@
   <meta name="theme-color" content="#100c16">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261027-nozoom">
-  <script src="app.js?v=20261027-sound" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261028-for-time">
+  <script src="app.js?v=20261028-for-time" defer></script>
 </head>
 <body>
   <main>
     <header><span class="eyebrow">YOUR TRAINING PARTNER</span><h1>Gym Companion<span>.</span></h1><p>Set your pace. Load your bar.</p></header>
     <section class="card" aria-labelledby="timer-title">
       <div class="section-heading"><h2 id="timer-title">Workout timer</h2><span class="tag">COUNT UP</span></div>
+      <label for="workout-mode">Workout mode</label>
+      <select id="workout-mode"><option value="for-time">For Time</option></select>
+      <p class="mode-help">Count up until you finish, or set a time cap.</p>
+      <label class="cap-toggle"><input id="cap-enabled" type="checkbox"> Use a time cap</label>
+      <div id="cap-fields" class="cap-fields" hidden>
+        <div><label for="cap-minutes">Minutes</label><input id="cap-minutes" type="number" min="0" max="999" step="1" value="10" inputmode="numeric" aria-describedby="cap-error"></div>
+        <div><label for="cap-seconds">Seconds</label><input id="cap-seconds" type="number" min="0" max="59" step="1" value="0" inputmode="numeric" aria-describedby="cap-error"></div>
+      </div>
+      <p id="cap-error" class="form-error" role="alert" hidden></p>
       <p id="timer-status" role="status">Ready · 10-second preparation countdown</p>
       <div id="timer-display" class="clock" role="timer" aria-label="Workout time in minutes, seconds, and milliseconds">00:00:000</div>
-      <div class="controls"><button id="start" class="primary">Start</button><button id="pause" disabled>Pause</button><button id="reset">Reset</button></div>
+      <div class="controls timer-controls"><button id="start" class="primary">Start</button><button id="pause" disabled>Pause</button><button id="finish" class="finish" disabled>Finish</button><button id="reset">Reset</button></div>
+      <div id="reset-confirmation" class="reset-confirmation" role="group" aria-labelledby="reset-question" hidden>
+        <p id="reset-question">Reset this workout? Your current time will be cleared.</p>
+        <div class="controls"><button id="cancel-reset">Keep workout</button><button id="confirm-reset">Yes, reset</button></div>
+      </div>
       <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="true">Sound: On</button>
     </section>
     <section class="card" aria-labelledby="bar-title">
