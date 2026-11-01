@@ -18,6 +18,19 @@ const plateTypes = [
   { weight: 0.5, color: '#92713e', height: 32 }
 ];
 const $ = (id) => document.getElementById(id);
+// Hide panels without rebuilding them, preserving each tool's current state.
+function selectTool(selected) {
+  for (const [tool, button] of [['timer', 'choose-timer'], ['bar', 'choose-bar']]) {
+    const open = selected === tool;
+    $(`${tool}-tool`).hidden = !open;
+    $(button).setAttribute('aria-expanded', String(open));
+    $(button).setAttribute('aria-pressed', String(open));
+  }
+  $('tool-prompt').hidden = selected !== null;
+}
+$('choose-timer').addEventListener('click', () => selectTool('timer'));
+$('choose-bar').addEventListener('click', () => selectTool('bar'));
+selectTool(null);
 let soundEnabled = true;
 let audioContext;
 let lastCountdownSecond = null;

@@ -381,3 +381,45 @@ test('digital round counter shows R0 during preparation, advances, holds and res
   app.mode('amrap'); assert.equal(app.get('clock-round').hidden, true);
   app.mode('for-time'); assert.equal(app.get('clock-round').hidden, true);
 });
+
+test('tool chooser starts closed, shows only one tool, and keeps selection on repeated taps', () => {
+  const app = setup();
+  assert.equal(app.get('timer-tool').hidden, true);
+  assert.equal(app.get('bar-tool').hidden, true);
+  assert.equal(app.get('tool-prompt').hidden, false);
+  assert.equal(app.get('choose-timer').attrs['aria-expanded'], 'false');
+  app.tap('choose-timer');
+  assert.equal(app.get('timer-tool').hidden, false);
+  assert.equal(app.get('bar-tool').hidden, true);
+  assert.equal(app.get('choose-timer').attrs['aria-pressed'], 'true');
+  app.tap('choose-bar'); app.tap('choose-bar');
+  assert.equal(app.get('timer-tool').hidden, true);
+  assert.equal(app.get('bar-tool').hidden, false);
+  assert.equal(app.get('choose-timer').attrs['aria-pressed'], 'false');
+  assert.equal(app.get('choose-bar').attrs['aria-expanded'], 'true');
+  assert.equal(app.get('tool-prompt').hidden, true);
+});
+
+test('switching tools preserves a running timer and loaded bar with selected units', () => {
+  const app = setup(); app.tap('choose-timer'); app.tap('start'); app.advance(10000);
+  app.tap('choose-bar');
+  app.get('plate-options').children[0].events.click(); app.tap('unit-toggle');
+  app.advance(12345); app.tap('choose-timer');
+  assert.equal(app.display(), '00:12:345');
+  assert.equal(app.get('pause').disabled, false);
+  app.tap('pause'); app.tap('choose-bar'); app.advance(20000);
+  assert.equal(app.get('total').textContent, '61.23');
+  assert.equal(app.get('total-unit').textContent, 'kg total');
+  assert.equal(app.get('left-plates').children.length, 1);
+  app.tap('choose-timer'); assert.equal(app.display(), '00:12:345');
+});
+
+test('AMRAP finishes and EMOM advances rounds while viewing the bar tool', () => {
+  const app = setup(); app.tap('choose-timer'); app.mode('amrap'); app.duration(0, 2);
+  app.tap('start'); app.tap('choose-bar'); app.advance(12000); app.tap('choose-timer');
+  assert.match(app.get('timer-status').textContent, /^AMRAP complete/);
+  app.tap('reset'); emom(app, 2, 3); app.tap('start'); app.tap('choose-bar');
+  app.advance(12000); app.tap('choose-timer');
+  assert.equal(app.get('clock-round').textContent, 'R2');
+  assert.equal(app.display(), '00:02:000');
+});

@@ -6,13 +6,18 @@
   <meta name="theme-color" content="#100c16">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261028-round-clock">
-  <script src="app.js?v=20261028-round-clock" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261031-tools">
+  <script src="app.js?v=20261031-tools" defer></script>
 </head>
 <body>
   <main>
     <header><span class="eyebrow">YOUR TRAINING PARTNER</span><h1>Gym Companion<span>.</span></h1><p>Set your pace. Load your bar.</p></header>
-    <section class="card" aria-labelledby="timer-title">
+    <div class="tool-switcher" role="group" aria-label="Choose a tool">
+      <button id="choose-timer" type="button" aria-controls="timer-tool" aria-expanded="false" aria-pressed="false">Workout Timer</button>
+      <button id="choose-bar" type="button" aria-controls="bar-tool" aria-expanded="false" aria-pressed="false">Load Your Bar</button>
+    </div>
+    <p id="tool-prompt" class="center">Choose a tool to get started.</p>
+    <section id="timer-tool" class="card" aria-labelledby="timer-title" hidden>
       <div class="section-heading"><h2 id="timer-title">Workout timer</h2><span id="timer-direction" class="tag">COUNT UP</span></div>
       <label for="workout-mode">Workout mode</label>
       <select id="workout-mode"><option value="for-time">For Time</option><option value="amrap">AMRAP</option><option value="emom">EMOM</option></select>
@@ -55,7 +60,7 @@
       </div>
       <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="true">Sound: On</button>
     </section>
-    <section class="card" aria-labelledby="bar-title">
+    <section id="bar-tool" class="card" aria-labelledby="bar-title" hidden>
       <div class="section-heading"><h2 id="bar-title">Load your bar</h2><button id="unit-toggle" class="unit-toggle" type="button" aria-label="Switch to kilograms" aria-pressed="false">POUNDS ⇄</button></div>
       <label for="bar-weight">Bar weight</label>
       <select id="bar-weight"><option value="45">45 lb bar</option><option value="35">35 lb bar</option><option value="15">15 lb bar</option></select>
