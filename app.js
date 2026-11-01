@@ -18,9 +18,13 @@ const plateTypes = [
   { weight: 0.5, color: '#92713e', height: 32 }
 ];
 const $ = (id) => document.getElementById(id);
+let cameraOwnsTimer = false;
+let recordingAudioDestination = null;
 // Hide panels without rebuilding them, preserving each tool's current state.
 function selectTool(selected) {
-  for (const [tool, button] of [['timer', 'choose-timer'], ['bar', 'choose-bar']]) {
+  if (cameraOwnsTimer && selected !== 'cam') return;
+  if (typeof window !== 'undefined') window.wodCam?.onToolChange(selected);
+  for (const [tool, button] of [['timer', 'choose-timer'], ['bar', 'choose-bar'], ['cam', 'choose-cam']]) {
     const open = selected === tool;
     $(`${tool}-tool`).hidden = !open;
     $(button).setAttribute('aria-expanded', String(open));
@@ -30,6 +34,7 @@ function selectTool(selected) {
 }
 $('choose-timer').addEventListener('click', () => selectTool('timer'));
 $('choose-bar').addEventListener('click', () => selectTool('bar'));
+$('choose-cam').addEventListener('click', () => selectTool('cam'));
 selectTool(null);
 let soundEnabled = true;
 let audioContext;
@@ -37,13 +42,14 @@ let lastCountdownSecond = null;
 const activeBeeps = new Set();
 
 // A tap unlocks browser audio; the tones are generated locally, with no audio download.
-function unlockAudio() {
-  if (!soundEnabled) return;
+function unlockAudio(force = false) {
+  if (!soundEnabled && !force) return;
   try {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
     audioContext ??= new AudioContextClass();
     if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    return audioContext;
   } catch { /* The timer still works if audio is unavailable. */ }
 }
 function stopBeeps() {
@@ -66,6 +72,7 @@ function beep(isStart = false) {
   gain.gain.linearRampToValueAtTime(0, now + duration);
   oscillator.connect(gain);
   gain.connect(audioContext.destination);
+  if (recordingAudioDestination) gain.connect(recordingAudioDestination);
   activeBeeps.add(oscillator);
   oscillator.onended = () => {
     activeBeeps.delete(oscillator);
@@ -242,32 +249,37 @@ function renderTimer() {
     if (timer.phase === 'finished') status = `${timer.result === 'emom-complete' ? 'EMOM complete' : 'EMOM ended early'} · Elapsed ${formatTime(elapsed)}`;
   }
   if ($('timer-status').textContent !== status) $('timer-status').textContent = status;
-  $('start').disabled = timer.running || timer.phase === 'finished';
+  $('start').disabled = cameraOwnsTimer || timer.running || timer.phase === 'finished';
   $('start').textContent = timer.phase === 'ready' || timer.phase === 'finished' ? 'Start' : 'Resume';
-  $('pause').disabled = !timer.running;
-  $('finish').disabled = timer.phase !== 'workout';
+  $('pause').disabled = cameraOwnsTimer || !timer.running;
+  $('finish').disabled = cameraOwnsTimer || timer.phase !== 'workout';
+  $('reset').disabled = cameraOwnsTimer;
   for (const id of ['workout-mode', 'cap-enabled', 'cap-minutes', 'cap-seconds', 'duration-minutes', 'duration-seconds', 'emom-interval', 'interval-minutes', 'interval-seconds', 'emom-rounds']) {
-    $(id).disabled = timer.phase !== 'ready';
+    $(id).disabled = cameraOwnsTimer || timer.phase !== 'ready';
   }
 }
-$('start').addEventListener('click', () => {
-  if (timer.running || timer.phase === 'finished') return;
-  if (timer.phase === 'ready') {
+function prepareWorkout() {
     let cap;
     if (timer.mode === 'emom') {
       const config = readEmom();
-      if (!config) return;
+      if (!config) return false;
       timer.interval = config.interval;
       timer.rounds = config.rounds;
       timer.lastRound = 0;
       cap = config.interval * config.rounds;
     } else cap = readTimeCap();
-    if (cap === false) return;
+    if (cap === false) return false;
     timer.cap = cap;
     $('cap-error').hidden = true;
     $('duration-error').hidden = true;
     $('interval-error').hidden = true;
     $('emom-error').hidden = true;
+    return true;
+}
+$('start').addEventListener('click', () => {
+  if (cameraOwnsTimer || timer.running || timer.phase === 'finished') return;
+  if (timer.phase === 'ready') {
+    if (!prepareWorkout()) return;
     timer.phase = 'prep';
   }
   unlockAudio();
@@ -276,6 +288,7 @@ $('start').addEventListener('click', () => {
   renderTimer();
 });
 $('pause').addEventListener('click', () => {
+  if (cameraOwnsTimer) return;
   renderTimer();
   if (!timer.running) return;
   stopBeeps();
@@ -295,12 +308,14 @@ function resetTimer() {
   renderTimer();
 }
 $('finish').addEventListener('click', () => {
+  if (cameraOwnsTimer) return;
   renderTimer();
   if (timer.phase !== 'workout') return;
   completeWorkout('finish', elapsedTime());
   renderTimer();
 });
 $('reset').addEventListener('click', () => {
+  if (cameraOwnsTimer) return;
   renderTimer();
   if (timer.phase === 'prep' || timer.phase === 'workout') {
     $('reset-confirmation').hidden = false;
@@ -312,6 +327,7 @@ $('cancel-reset').addEventListener('click', () => {
   $('reset').focus();
 });
 $('confirm-reset').addEventListener('click', () => {
+  if (cameraOwnsTimer) return;
   resetTimer();
   $('start').focus();
 });
@@ -374,3 +390,48 @@ $('remove').addEventListener('click', () => { plates.pop(); renderBar(); });
 $('clear').addEventListener('click', () => { plates = []; renderBar(); });
 renderTimer();
 renderBar();
+
+// WOD Cam shares the same timer and sound engine; standalone controls stay independent.
+window.gymTimer = {
+  describe() {
+    if (timer.mode === 'amrap') return `AMRAP · ${formatTime(readDuration('duration', false) || 0)}`;
+    if (timer.mode === 'emom') {
+      const config = readEmom(false);
+      return config ? `EMOM · ${config.rounds} rounds every ${formatTime(config.interval)}` : 'EMOM · Check interval and rounds';
+    }
+    return $('cap-enabled').checked ? `For Time · Cap ${formatTime(readDuration('cap', false) || 0)}` : 'For Time · No time cap';
+  },
+  snapshot() {
+    if (timer.running) renderTimer();
+    return { phase: timer.phase, text: $('timer-display').textContent, soundEnabled };
+  },
+  claim() {
+    if (timer.phase !== 'ready') throw new Error('Finish or reset the current workout in Workout Timer before recording.');
+    if (!prepareWorkout()) throw new Error('Check your workout settings in Workout Timer before recording.');
+    cameraOwnsTimer = true;
+    for (const id of ['choose-timer', 'choose-bar']) $(id).disabled = true;
+    renderTimer();
+  },
+  release() {
+    cameraOwnsTimer = false;
+    recordingAudioDestination = null;
+    for (const id of ['choose-timer', 'choose-bar']) $(id).disabled = false;
+    renderTimer();
+  },
+  audio() { return unlockAudio(true); },
+  routeCues(destination) { recordingAudioDestination = destination; },
+  cue() { beep(); },
+  start() {
+    if (!cameraOwnsTimer || timer.phase !== 'ready') throw new Error('The timer is not ready to record.');
+    Object.assign(timer, { phase: 'workout', elapsed: 0, startedAt: performance.now(), running: true, lastRound: 0 });
+    if (timer.mode !== 'emom') beep(true);
+    renderTimer();
+  },
+  finish() {
+    renderTimer();
+    if (timer.phase === 'workout') completeWorkout('finish', elapsedTime());
+    renderTimer();
+  },
+  settings() { selectTool('timer'); },
+  resetFinished() { if (!cameraOwnsTimer && timer.phase === 'finished') resetTimer(); }
+};

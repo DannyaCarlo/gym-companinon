@@ -6,8 +6,9 @@
   <meta name="theme-color" content="#100c16">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261031-tools">
-  <script src="app.js?v=20261031-tools" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261031-wod-cam">
+  <script src="app.js?v=20261031-wod-cam" defer></script>
+  <script src="wod-cam.js?v=20261031-record-countdown" defer></script>
 </head>
 <body>
   <main>
@@ -15,6 +16,7 @@
     <div class="tool-switcher" role="group" aria-label="Choose a tool">
       <button id="choose-timer" type="button" aria-controls="timer-tool" aria-expanded="false" aria-pressed="false">Workout Timer</button>
       <button id="choose-bar" type="button" aria-controls="bar-tool" aria-expanded="false" aria-pressed="false">Load Your Bar</button>
+      <button id="choose-cam" type="button" aria-controls="cam-tool" aria-expanded="false" aria-pressed="false">WOD Cam</button>
     </div>
     <p id="tool-prompt" class="center">Choose a tool to get started.</p>
     <section id="timer-tool" class="card" aria-labelledby="timer-title" hidden>
@@ -71,6 +73,34 @@
       <p class="plate-heading">Add plates <span>Each tap adds one per side</span></p>
       <div id="plate-options" class="plate-options"></div>
       <div class="controls secondary"><button id="remove" disabled>Remove last pair</button><button id="clear" disabled>Clear plates</button></div>
+    </section>
+    <section id="cam-tool" class="card" aria-labelledby="cam-title" hidden>
+      <div class="section-heading"><h2 id="cam-title">WOD Cam</h2><span class="tag">RECORD YOUR WORKOUT</span></div>
+      <p id="cam-workout"></p>
+      <button id="cam-settings" type="button">Workout timer settings</button>
+      <div class="cam-settings-grid">
+        <div><label for="cam-delay">Start delay</label><select id="cam-delay"><option value="0">0 seconds</option><option value="10" selected>10 seconds</option><option value="20">20 seconds</option></select></div>
+        <div><label for="cam-position">Timer position</label><select id="cam-position"><option value="top-left">Top Left</option><option value="top-right">Top Right</option><option value="bottom-left">Bottom Left</option><option value="bottom-right">Bottom Right</option></select></div>
+      </div>
+      <p class="mode-help">Recording includes the start delay, then continues into your workout. The delay replaces preparation. Sound follows your timer settings.</p>
+      <p class="mode-help">Keep this page open and your screen unlocked while recording. Videos stay on this device; save them before closing or reloading.</p>
+      <p id="cam-status" role="status">Enable your camera and microphone to preview your workout.</p>
+      <p id="cam-error" class="form-error" role="alert" hidden></p>
+      <video id="cam-source" class="cam-source" autoplay muted playsinline aria-hidden="true" tabindex="-1"></video>
+      <canvas id="cam-canvas" class="cam-canvas" width="720" height="1280" role="img" aria-label="Live camera preview with workout timer" hidden></canvas>
+      <div class="controls timer-controls cam-controls">
+        <button id="cam-enable" type="button">Enable camera</button>
+        <button id="cam-record" class="primary" type="button" disabled>Record</button>
+        <button id="cam-stop" type="button" disabled>Stop recording</button>
+        <button id="cam-close" type="button" disabled>Close camera</button>
+      </div>
+      <button id="cam-reset" type="button" hidden>Reset timer for another recording</button>
+      <div id="cam-result" hidden>
+        <h3>Preview recording</h3>
+        <video id="cam-playback" class="cam-playback" controls playsinline preload="metadata"></video>
+        <div class="controls cam-controls"><a id="cam-save" class="save-video" download>Save video</a><button id="cam-share" type="button" hidden>Share / Save to device</button></div>
+        <p class="mode-help">Check the timer and sound in this preview before saving. A new recording will replace this preview.</p>
+      </div>
     </section>
     <footer>One set at a time.</footer>
   </main>

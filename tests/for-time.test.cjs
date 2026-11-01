@@ -44,13 +44,14 @@ function setup() {
       return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {}, disconnect() {} };
     }
   }
+  const host = { AudioContext };
   vm.runInNewContext(source, {
     document: { hidden: false, getElementById: get, createElement: element,
       querySelectorAll: () => get('plate-options').children },
-    window: { AudioContext }, performance: { now: () => now },
+    window: host, performance: { now: () => now },
     requestAnimationFrame(callback) { frame = callback; }
   });
-  return { get, tones, tap(id) { get(id).events.click(); },
+  return { get, tones, camera: host.gymTimer, tap(id) { get(id).events.click(); },
     mode(value) { get('workout-mode').value = value; get('workout-mode').events.change(); },
     duration(minutes, seconds) {
       get('duration-minutes').value = String(minutes);
@@ -422,4 +423,30 @@ test('AMRAP finishes and EMOM advances rounds while viewing the bar tool', () =>
   app.advance(12000); app.tap('choose-timer');
   assert.equal(app.get('clock-round').textContent, 'R2');
   assert.equal(app.display(), '00:02:000');
+});
+
+test('camera starts workout immediately with current settings and protects standalone controls', () => {
+  const app = setup(); app.mode('amrap'); app.duration(0, 5);
+  app.camera.claim(); app.camera.audio();
+  assert.equal(app.get('start').disabled, true);
+  assert.equal(app.get('choose-timer').disabled, true);
+  app.camera.start(); assert.equal(app.display(), '00:05:000');
+  app.tap('reset'); app.tap('pause'); app.tap('finish');
+  app.advance(1000); assert.equal(app.display(), '00:04:000');
+  app.advance(4000); assert.equal(app.camera.snapshot().phase, 'finished');
+  app.camera.release(); app.camera.resetFinished();
+  assert.equal(app.get('start').disabled, false);
+  app.tap('start'); assert.equal(app.display(), '00:10:000');
+});
+
+test('camera refuses an existing workout and releases a cancelled start without resetting settings', () => {
+  const app = setup(); app.tap('start');
+  assert.throws(() => app.camera.claim(), /Finish or reset/);
+  app.tap('reset'); app.tap('confirm-reset');
+  emom(app, 2, 3); app.camera.claim(); app.camera.release();
+  assert.equal(app.display(), '00:02:000');
+  assert.equal(app.get('emom-rounds').value, '3');
+  app.camera.claim(); app.camera.start(); app.advance(2000);
+  assert.equal(app.get('clock-round').textContent, 'R2');
+  app.camera.finish(); assert.equal(app.camera.snapshot().phase, 'finished');
 });
