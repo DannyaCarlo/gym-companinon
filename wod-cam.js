@@ -11,6 +11,39 @@
   let frameId, stopTimeout, generation = 0, claimed = false;
   let countdownEnd = 0, lastSecond = null, themeColor = '#ff9a3c';
   let stoppedText = '';
+  let facing = 'environment', cameraCount = 0, recordingStarted = 0, cameraOpen = false;
+  try { if (localStorage.getItem('wod-camera-facing') === 'user') facing = 'user'; } catch (_) {}
+
+  function enterCamera() {
+    cameraOpen = true;
+    document.body.classList.add('camera-open');
+    for (const node of document.querySelectorAll('main > :not(#cam-tool)')) node.inert = true;
+    el('cam-close').focus();
+    if (state === 'idle' && !recordingBlob) enableCamera();
+  }
+  function requestNativeFullscreen() {
+    if (cameraOpen && !document.fullscreenElement) {
+      try { el('cam-tool').requestFullscreen?.().catch(() => {}); } catch (_) {}
+    }
+  }
+  function exitCamera() {
+    cameraOpen = false;
+    document.body.classList.remove('camera-open');
+    for (const node of document.querySelectorAll('main > :not(#cam-tool)')) node.inert = false;
+    if (document.fullscreenElement === el('cam-tool')) return document.exitFullscreen?.().catch(() => {});
+  }
+  async function requestClose() {
+    if (busy()) {
+      el('cam-close-confirm').hidden = false;
+      el('cam-continue').focus();
+    } else {
+      closeCamera(); await exitCamera(); clock.closeCamera(); el('choose-cam').focus();
+    }
+  }
+  function elapsedRecording() {
+    const seconds = Math.floor(Math.max(0, performance.now() - recordingStarted) / 1000);
+    el('cam-elapsed').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  }
 
   const busy = () => ['preparing', 'countdown', 'starting', 'recording', 'stopping'].includes(state);
   function status(text) { el('cam-status').textContent = text; }
@@ -25,10 +58,19 @@
     el('cam-record').disabled = state !== 'preview';
     el('cam-stop').disabled = !busy() || state === 'stopping';
     el('cam-stop').textContent = ['preparing', 'starting'].includes(state) ? 'Cancel start' : 'Stop recording';
-    el('cam-close').disabled = state === 'idle' || busy();
+    el('cam-close').disabled = state === 'stopping';
+    el('cam-enable').hidden = state !== 'idle';
+    el('cam-record').hidden = state === 'idle' || busy();
+    el('cam-stop').hidden = !busy();
+    el('cam-flip').hidden = cameraCount < 2;
+    el('cam-flip').disabled = state !== 'preview';
+    el('cam-flip').setAttribute('aria-label', `Switch to ${facing === 'environment' ? 'front' : 'rear'} camera`);
+    el('cam-options-toggle').disabled = busy() || state === 'opening';
+    el('cam-recording').hidden = !['countdown', 'recording', 'stopping'].includes(state);
+    if (busy()) { el('cam-options').hidden = true; el('cam-options-toggle').setAttribute('aria-expanded', 'false'); }
     for (const id of ['cam-delay', 'cam-position', 'cam-settings']) el(id).disabled = busy() || state === 'opening';
     el('cam-reset').hidden = busy() || snapshot.phase !== 'finished';
-    el('cam-result').hidden = busy() || !recordingBlob;
+    el('cam-result').hidden = state !== 'idle' || !recordingBlob;
   }
   function supported() {
     return !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder && canvas.captureStream && paint
@@ -58,11 +100,17 @@
     }
     releaseMedia();
     state = 'idle';
+    el('cam-close-confirm').hidden = true;
     refresh();
   }
   function draw(text) {
     if (!video.videoWidth || video.readyState < 2) return;
-    paint.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Letterbox any orientation change during a take; never stretch or crop the saved image.
+    const scale = Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+    const width = video.videoWidth * scale, height = video.videoHeight * scale;
+    paint.fillStyle = '#000';
+    paint.fillRect(0, 0, canvas.width, canvas.height);
+    paint.drawImage(video, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
     const padding = Math.max(20, Math.round(Math.min(canvas.width, canvas.height) * .04));
     let size = Math.max(20, Math.round(canvas.width * .065));
     paint.font = `700 ${size}px "Gym Digital", monospace`;
@@ -89,6 +137,13 @@
   }
   function renderCamera() {
     if (!input) return;
+    if (state === 'preview') {
+      const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+      const width = Math.round(video.videoWidth * scale / 2) * 2;
+      const height = Math.round(video.videoHeight * scale / 2) * 2;
+      if (width && height && (canvas.width !== width || canvas.height !== height)) { canvas.width = width; canvas.height = height; }
+    }
+    if (['countdown', 'recording'].includes(state)) elapsedRecording();
     let text = clock.snapshot().text;
     if (state === 'countdown') {
       const remaining = Math.max(0, countdownEnd - performance.now());
@@ -110,7 +165,7 @@
     if (state === 'recording' && clock.snapshot().phase === 'finished') stopRecording();
     frameId = requestAnimationFrame(renderCamera);
   }
-  async function enableCamera() {
+  async function enableCamera(requiredFacing) {
     if (state !== 'idle') return;
     error('');
     if (!supported()) {
@@ -121,13 +176,25 @@
     const ticket = ++generation;
     refresh(); status('Allow camera and microphone access to open the preview.');
     try {
+      // Browsers may suppress a fresh camera permission prompt in native fullscreen.
+      if (document.fullscreenElement === el('cam-tool')) await document.exitFullscreen();
+      if (ticket !== generation) return;
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } },
+        video: { facingMode: typeof requiredFacing === 'string' ? { exact: requiredFacing } : { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } },
         audio: { echoCancellation: true, noiseSuppression: true }
       });
       if (ticket !== generation) { stream.getTracks().forEach(track => track.stop()); return; }
       input = stream;
       if (!stream.getVideoTracks().length || !stream.getAudioTracks().length) throw new Error('Camera and microphone are both required.');
+      const actualFacing = stream.getVideoTracks()[0].getSettings?.().facingMode;
+      if (['user', 'environment'].includes(actualFacing)) facing = actualFacing;
+      else if (typeof requiredFacing === 'string') facing = requiredFacing;
+      try { localStorage.setItem('wod-camera-facing', facing); } catch (_) {}
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        cameraCount = devices.filter(device => device.kind === 'videoinput').length;
+      } catch (_) { cameraCount = 0; }
+      if (ticket !== generation) return;
       video.srcObject = stream;
       await video.play();
       if (ticket !== generation) return;
@@ -143,6 +210,7 @@
       });
       canvas.hidden = false;
       state = 'preview'; refresh();
+      requestNativeFullscreen();
       status('Camera ready. Choose a delay and corner, then tap Record.');
       renderCamera();
     } catch (failure) {
@@ -171,6 +239,7 @@
       await audio.resume();
       if (ticket !== generation) return;
       if (audio.state !== 'running') throw new Error('Audio could not start. Tap Record again after enabling sound in your browser.');
+      requestNativeFullscreen();
       await document.fonts.load('700 48px "Gym Digital"');
       if (ticket !== generation) return;
       audioMix = audio.createMediaStreamDestination();
@@ -187,6 +256,7 @@
       recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
       recorder.onstart = () => {
         if (state !== 'starting') return;
+        recordingStarted = performance.now(); elapsedRecording();
         countdownEnd = performance.now() + seconds * 1000;
         state = 'countdown';
         if (seconds === 0) startWorkout();
@@ -264,7 +334,26 @@
   el('cam-enable').addEventListener('click', enableCamera);
   el('cam-record').addEventListener('click', record);
   el('cam-stop').addEventListener('click', stopRecording);
-  el('cam-close').addEventListener('click', () => { closeCamera(); status('Camera is off.'); });
+  el('cam-close').addEventListener('click', requestClose);
+  el('cam-continue').addEventListener('click', () => { el('cam-close-confirm').hidden = true; el('cam-close').focus(); });
+  el('cam-confirm-stop').addEventListener('click', () => { el('cam-close-confirm').hidden = true; stopRecording(); });
+  el('cam-options-toggle').addEventListener('click', () => {
+    if (busy()) return;
+    el('cam-options').hidden = !el('cam-options').hidden;
+    el('cam-options-toggle').setAttribute('aria-expanded', String(!el('cam-options').hidden));
+  });
+  el('cam-flip').addEventListener('click', async () => {
+    if (state !== 'preview' || cameraCount < 2) return;
+    const previous = facing;
+    const next = facing === 'environment' ? 'user' : 'environment';
+    closeCamera();
+    await enableCamera(next);
+    if (state === 'idle' && cameraOpen) {
+      facing = previous;
+      await enableCamera();
+      error('The other camera is unavailable. Your previous camera has been restored.');
+    }
+  });
   el('cam-settings').addEventListener('click', () => clock.settings());
   el('cam-reset').addEventListener('click', () => { clock.resetFinished(); refresh(); });
   el('cam-share').addEventListener('click', async () => {
@@ -279,6 +368,14 @@
       stopRecording();
     } else if (state === 'preview' || state === 'opening') closeCamera();
   });
+  document.addEventListener('keydown', event => {
+    if (!cameraOpen) return;
+    if (event.key === 'Escape') { event.preventDefault(); requestClose(); }
+    if (event.key === 'Tab' && !el('cam-close-confirm').hidden) {
+      event.preventDefault();
+      (document.activeElement === el('cam-continue') ? el('cam-confirm-stop') : el('cam-continue')).focus();
+    }
+  });
   window.addEventListener('beforeunload', event => {
     if (busy() || recordingBlob) { event.preventDefault(); event.returnValue = ''; }
   });
@@ -290,9 +387,10 @@
   window.wodCam = {
     onToolChange(selected) {
       if (selected !== 'cam') {
+        exitCamera();
         el('cam-playback').pause();
         if (!busy() && (input || state === 'opening')) { closeCamera(); status('Camera is off.'); }
-      } else refresh();
+      } else { refresh(); enterCamera(); }
     }
   };
   refresh();

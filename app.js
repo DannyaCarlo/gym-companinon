@@ -23,7 +23,6 @@ let recordingAudioDestination = null;
 // Hide panels without rebuilding them, preserving each tool's current state.
 function selectTool(selected) {
   if (cameraOwnsTimer && selected !== 'cam') return;
-  if (typeof window !== 'undefined') window.wodCam?.onToolChange(selected);
   for (const [tool, button] of [['timer', 'choose-timer'], ['bar', 'choose-bar'], ['cam', 'choose-cam']]) {
     const open = selected === tool;
     $(`${tool}-tool`).hidden = !open;
@@ -31,6 +30,7 @@ function selectTool(selected) {
     $(button).setAttribute('aria-pressed', String(open));
   }
   $('tool-prompt').hidden = selected !== null;
+  if (typeof window !== 'undefined') window.wodCam?.onToolChange(selected);
 }
 $('choose-timer').addEventListener('click', () => selectTool('timer'));
 $('choose-bar').addEventListener('click', () => selectTool('bar'));
@@ -433,5 +433,6 @@ window.gymTimer = {
     renderTimer();
   },
   settings() { selectTool('timer'); },
+  closeCamera() { selectTool(null); },
   resetFinished() { if (!cameraOwnsTimer && timer.phase === 'finished') resetTimer(); }
 };

@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#100c16">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261031-wod-cam">
-  <script src="app.js?v=20261031-wod-cam" defer></script>
-  <script src="wod-cam.js?v=20261031-record-countdown" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261101-fullscreen-cam">
+  <script src="app.js?v=20261101-fullscreen-cam" defer></script>
+  <script src="wod-cam.js?v=20261101-fullscreen-cam" defer></script>
 </head>
 <body>
   <main>
@@ -75,7 +75,8 @@
       <div class="controls secondary"><button id="remove" disabled>Remove last pair</button><button id="clear" disabled>Clear plates</button></div>
     </section>
     <section id="cam-tool" class="card" aria-labelledby="cam-title" hidden>
-      <div class="section-heading"><h2 id="cam-title">WOD Cam</h2><span class="tag">RECORD YOUR WORKOUT</span></div>
+      <div class="cam-top"><button id="cam-close" type="button" aria-label="Close WOD Cam">&#10005; Close</button><h2 id="cam-title">WOD Cam</h2><span id="cam-recording" hidden><span class="record-dot"></span> REC <span id="cam-elapsed">00:00</span></span></div>
+      <div id="cam-options" class="cam-options" hidden>
       <p id="cam-workout"></p>
       <button id="cam-settings" type="button">Workout timer settings</button>
       <div class="cam-settings-grid">
@@ -84,16 +85,17 @@
       </div>
       <p class="mode-help">Recording includes the start delay, then continues into your workout. The delay replaces preparation. Sound follows your timer settings.</p>
       <p class="mode-help">Keep this page open and your screen unlocked while recording. Videos stay on this device; save them before closing or reloading.</p>
+      </div>
       <p id="cam-status" role="status">Enable your camera and microphone to preview your workout.</p>
       <p id="cam-error" class="form-error" role="alert" hidden></p>
       <video id="cam-source" class="cam-source" autoplay muted playsinline aria-hidden="true" tabindex="-1"></video>
       <canvas id="cam-canvas" class="cam-canvas" width="720" height="1280" role="img" aria-label="Live camera preview with workout timer" hidden></canvas>
-      <div class="controls timer-controls cam-controls">
-        <button id="cam-enable" type="button">Enable camera</button>
-        <button id="cam-record" class="primary" type="button" disabled>Record</button>
-        <button id="cam-stop" type="button" disabled>Stop recording</button>
-        <button id="cam-close" type="button" disabled>Close camera</button>
+      <div class="cam-bottom">
+        <button id="cam-options-toggle" type="button" aria-expanded="false" aria-controls="cam-options">Settings</button>
+        <div class="cam-shutter"><button id="cam-enable" type="button">Enable camera</button><button id="cam-record" type="button" aria-label="Record video" disabled>Record</button><button id="cam-stop" type="button" disabled hidden>Stop</button></div>
+        <button id="cam-flip" type="button" aria-label="Switch to front camera" title="Flip camera" hidden><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><path d="M8 12a4 4 0 0 1 7-1l2 2m0-4v4h-4M16 16a4 4 0 0 1-7 1l-2-2m0 4v-4h4"/></svg></button>
       </div>
+      <div id="cam-close-confirm" class="cam-confirm" role="dialog" aria-modal="true" aria-labelledby="cam-close-question" hidden><p id="cam-close-question">Stop recording? Your video will be kept for preview and saving.</p><div class="controls"><button id="cam-continue" type="button">Continue recording</button><button id="cam-confirm-stop" type="button">Stop and review</button></div></div>
       <button id="cam-reset" type="button" hidden>Reset timer for another recording</button>
       <div id="cam-result" hidden>
         <h3>Preview recording</h3>
