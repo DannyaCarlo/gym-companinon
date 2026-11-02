@@ -492,7 +492,7 @@ test('bar changes recalculate a direct target and invalid input leaves the load 
   app.get('bar-weight').value = '35'; app.get('bar-weight').events.change();
   assert.equal(app.get('total').textContent, '155');
   assert.match(app.get('plates-per-side').textContent, /1 × 45 lb \+ 1 × 15 lb/);
-  for (const bad of ['', '-5', 'abc', 'Infinity']) {
+  for (const bad of ['-5', 'abc', 'Infinity']) {
     enterWeight(app, bad); assert.equal(app.get('total').textContent, '155');
     assert.equal(app.get('target-weight').attrs['aria-invalid'], 'true');
   }
@@ -504,4 +504,38 @@ test('targets respect eight plates per side and find bounded nearest combination
   assert.match(app.get('target-message').textContent, /Closest achievable: 765 lb/);
   enterWeight(app, 756); assert.equal(app.get('total').textContent, '765');
   enterWeight(app, 755); assert.equal(app.get('total').textContent, '745');
+});
+
+
+test('weight focus clears only the number and empty blur restores it without rebuilding plates', () => {
+  const app = setup(); enterWeight(app, 155);
+  const originalPlate = app.get('left-plates').children[0];
+  app.get('target-weight').events.focus();
+  app.get('target-weight').events.click();
+  assert.equal(app.get('target-weight').value, '');
+  assert.equal(app.get('target-unit').textContent, 'lbs');
+  assert.equal(app.get('total').textContent, '155');
+  app.get('target-weight').events.blur();
+  assert.equal(app.get('target-weight').value, '155');
+  assert.equal(app.get('left-plates').children[0], originalPlate);
+});
+test('draft weights apply on blur or Enter, and repeated clicks preserve typing', () => {
+  const app = setup(); const field = app.get('target-weight');
+  field.events.focus(); field.value = '135'; field.events.input(); field.events.click();
+  assert.equal(field.value, '135'); assert.equal(app.get('total').textContent, '45');
+  field.events.blur(); assert.equal(app.get('total').textContent, '135');
+  field.events.focus(); field.value = '155';
+  field.events.keydown({key:'Enter', preventDefault() {}});
+  assert.equal(app.get('total').textContent, '155');
+  field.events.click(); assert.equal(field.value, '');
+  field.events.keydown({key:'Enter', preventDefault() {}});
+  assert.equal(field.value, '155');
+});
+test('empty kilogram edits restore the requested target without changing the rounded load', () => {
+  const app = setup(); app.tap('unit-toggle'); enterWeight(app, 60);
+  const plate = app.get('left-plates').children[0];
+  const field = app.get('target-weight'); field.events.focus(); field.events.blur();
+  assert.equal(field.value, '60'); assert.equal(app.get('target-unit').textContent, 'kgs');
+  assert.equal(app.get('total').textContent, '59.87');
+  assert.equal(app.get('left-plates').children[0], plate);
 });

@@ -2,6 +2,8 @@
 const timer = { mode: 'for-time', phase: 'ready', running: false, elapsed: 0, startedAt: 0, cap: null, result: null, interval: null, rounds: 0, lastRound: 0 };
 let plates = []; // Store one side only; every plate represents a matching pair.
 let targetPounds = null;
+let editingTarget = false;
+let previousTargetText = '';
 const maxPlatesPerSide = 8;
 let unit = 'lb';
 // Keep original pound values internally, so switching units never loses precision.
@@ -382,6 +384,12 @@ function loadTarget() {
 }
 function enterTarget() {
   const raw = $('target-weight').value.trim().replace(',', '.');
+  if (!raw) {
+    $('target-weight').value = previousTargetText;
+    sizeTargetInput();
+    editingTarget = false;
+    return;
+  }
   const number = Number(raw);
   if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw) || !Number.isFinite(number / 0.45359237) || number < 0) {
     $('target-message').hidden = false;
@@ -390,7 +398,15 @@ function enterTarget() {
     return;
   }
   targetPounds = unit === 'kg' ? number / 0.45359237 : number;
+  editingTarget = false;
   loadTarget();
+}
+function beginTargetEdit() {
+  if (editingTarget) return; // Tapping again while typing must not erase the draft.
+  previousTargetText = $('target-weight').value;
+  editingTarget = true;
+  $('target-weight').value = '';
+  sizeTargetInput();
 }
 function sizeTargetInput() {
   $('target-weight').style.setProperty('--weight-characters', Math.max(1, $('target-weight').value.length));
@@ -401,6 +417,7 @@ function renderBar() {
   $('total').textContent = displayWeight(bar + 2 * perSide);
   const actual = bar + 2 * perSide;
   $('target-weight').value = displayWeight(targetPounds ?? actual);
+  previousTargetText = $('target-weight').value;
   sizeTargetInput();
   $('target-weight').setAttribute('aria-invalid', 'false');
   $('target-weight').setAttribute('aria-label', `Target weight in ${unit === 'lb' ? 'pounds' : 'kilograms'}`);
@@ -452,6 +469,9 @@ for (const plate of plateTypes) {
   $('plate-options').append(button);
 }
 $('target-weight').addEventListener('change', enterTarget);
+$('target-weight').addEventListener('focus', beginTargetEdit);
+$('target-weight').addEventListener('click', beginTargetEdit);
+$('target-weight').addEventListener('blur', () => { if (editingTarget) enterTarget(); });
 $('target-weight').addEventListener('input', sizeTargetInput);
 $('target-weight').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); enterTarget(); } });
 $('bar-weight').addEventListener('change', () => { if (targetPounds !== null) loadTarget(); else renderBar(); });
