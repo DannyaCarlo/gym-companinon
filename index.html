@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#151718">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261101-charcoal">
-  <script src="app.js?v=20261101-charcoal" defer></script>
-  <script src="wod-cam.js?v=20261101-charcoal" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261102-target-weight">
+  <script src="app.js?v=20261102-target-weight" defer></script>
+  <script src="wod-cam.js?v=20261102-target-weight" defer></script>
 </head>
 <body>
   <main>
@@ -67,7 +67,11 @@
       <label for="bar-weight">Bar weight</label>
       <select id="bar-weight"><option value="45">45 lb bar</option><option value="35">35 lb bar</option><option value="15">15 lb bar</option></select>
       <div class="rack" role="img" aria-label="45 pound bar with no plates" id="rack"><div class="upright left"></div><div class="upright right"></div><div class="bar"></div><div id="left-plates" class="plates left-plates"></div><div id="right-plates" class="plates right-plates"></div></div>
-      <div class="total" aria-live="polite"><strong id="total">45</strong> <span id="total-unit">lb total</span></div>
+      <label class="target-label" for="target-weight">Target weight · tap to edit</label>
+      <div class="total"><input id="target-weight" type="text" inputmode="decimal" value="45" autocomplete="off" aria-describedby="target-message loaded-weight" aria-label="Target weight in pounds"><span id="target-unit">lb</span></div>
+      <p id="loaded-weight" class="center" aria-live="polite">Actual loaded: <strong id="total">45</strong> <span id="total-unit">lb total</span></p>
+      <p id="target-message" class="center" role="status" hidden></p>
+      <p id="plates-per-side" class="center"></p>
       <p id="breakdown" class="center">45 lb bar + 0 lb per side × 2</p>
       <p id="conversion-note" class="center" hidden>Same equipment, converted to kg. Values rounded to 2 decimals.</p>
       <p class="plate-heading">Add plates <span>Each tap adds one per side</span></p>

@@ -171,3 +171,10 @@ button, select, .cap-fields input { border-color: #414547; border-radius: 12px; 
   .section-heading .tool-icon { width: 26px; height: 26px; }
   .tag { font-size: 8px; }
 }
+
+.target-label { text-align: center; margin: 18px 0 4px; }
+#target-weight { width: min(230px, 75%); min-height: 64px; padding: 4px; border: 1px solid transparent; border-bottom-color: var(--line); border-radius: 10px; background: transparent; color: var(--text); text-align: center; font: 800 48px system-ui, sans-serif; }
+#target-weight:hover { border-color: var(--line); }
+#loaded-weight { margin: 12px 0; }
+#target-message { color: var(--accent); line-height: 1.5; }
+#plates-per-side { line-height: 1.5; }

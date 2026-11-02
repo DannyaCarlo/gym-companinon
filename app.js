@@ -1,6 +1,8 @@
 // STATE: the information the app remembers while the page is open.
 const timer = { mode: 'for-time', phase: 'ready', running: false, elapsed: 0, startedAt: 0, cap: null, result: null, interval: null, rounds: 0, lastRound: 0 };
 let plates = []; // Store one side only; every plate represents a matching pair.
+let targetPounds = null;
+const maxPlatesPerSide = 8;
 let unit = 'lb';
 // Keep original pound values internally, so switching units never loses precision.
 function displayWeight(pounds) {
@@ -342,10 +344,70 @@ function animateTimer() {
 }
 requestAnimationFrame(animateTimer);
 
+// Half-pound units per side make every supported load an integer.
+// Keep the largest-first combination for every load possible within the existing eight-plate limit.
+function platePlans() {
+  let level = new Map([[0, []]]);
+  const all = new Map(level);
+  function preferred(a, b) {
+    if (!b) return true;
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0);
+    }
+    return false;
+  }
+  for (let count = 1; count <= maxPlatesPerSide; count++) {
+    const next = new Map();
+    for (const [sum, plan] of level) for (const plate of plateTypes) {
+      const amount = sum + plate.weight * 2;
+      const candidate = [...plan, plate.weight].sort((a, b) => b - a);
+      if (preferred(candidate, next.get(amount))) next.set(amount, candidate);
+      if (preferred(candidate, all.get(amount))) all.set(amount, candidate);
+    }
+    level = next;
+  }
+  return all;
+}
+const availablePlans = platePlans();
+function loadTarget() {
+  const bar = Number($('bar-weight').value);
+  const desired = Math.max(0, Math.min(maxPlatesPerSide * 90, targetPounds - bar));
+  let closest = 0;
+  for (const amount of availablePlans.keys()) {
+    const distance = Math.abs(amount - desired), best = Math.abs(closest - desired);
+    if (distance < best - 1e-8 || (Math.abs(distance - best) < 1e-8 && amount < closest)) closest = amount;
+  }
+  plates = availablePlans.get(closest).map(weight => plateTypes.find(p => p.weight === weight));
+  renderBar();
+}
+function enterTarget() {
+  const raw = $('target-weight').value.trim().replace(',', '.');
+  const number = Number(raw);
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw) || !Number.isFinite(number / 0.45359237) || number < 0) {
+    $('target-message').hidden = false;
+    $('target-message').textContent = 'Enter a valid weight of zero or more. The loaded plates have not changed.';
+    $('target-weight').setAttribute('aria-invalid', 'true');
+    return;
+  }
+  targetPounds = unit === 'kg' ? number / 0.45359237 : number;
+  loadTarget();
+}
 function renderBar() {
   const bar = Number($('bar-weight').value);
   const perSide = plates.reduce((sum, plate) => sum + plate.weight, 0);
   $('total').textContent = displayWeight(bar + 2 * perSide);
+  const actual = bar + 2 * perSide;
+  $('target-weight').value = displayWeight(targetPounds ?? actual);
+  $('target-weight').setAttribute('aria-invalid', 'false');
+  $('target-weight').setAttribute('aria-label', `Target weight in ${unit === 'lb' ? 'pounds' : 'kilograms'}`);
+  $('target-unit').textContent = unit;
+  const mismatch = targetPounds !== null && Math.abs(targetPounds - actual) > 1e-7;
+  $('target-message').hidden = !mismatch;
+  $('target-message').textContent = mismatch ? `${targetPounds < bar ? 'Target is below the selected bar’s weight.' : 'That target cannot be loaded exactly with these plates (up to 8 per side).'} Closest achievable: ${displayWeight(actual)} ${unit}.` : '';
+  const ordered = [...plates].sort((a, b) => b.weight - a.weight);
+  const counts = new Map();
+  for (const p of ordered) counts.set(p.weight, (counts.get(p.weight) || 0) + 1);
+  $('plates-per-side').textContent = `Per side: ${[...counts].map(([weight, count]) => `${count} × ${displayWeight(weight)} ${unit}`).join(' + ') || 'no plates'}`;
   $('total-unit').textContent = `${unit} total`;
   $('breakdown').textContent = `${displayWeight(bar)} ${unit} bar + ${displayWeight(perSide)} ${unit} per side × 2`;
   $('unit-toggle').textContent = unit === 'lb' ? 'POUNDS ⇄' : 'KILOGRAMS ⇄';
@@ -357,7 +419,7 @@ function renderBar() {
   }
   for (const side of ['left-plates', 'right-plates']) {
     $(side).replaceChildren();
-    for (const plate of plates) {
+    for (const plate of ordered) {
       const element = document.createElement('span');
       element.className = 'plate';
       element.style.backgroundColor = plate.color;
@@ -382,16 +444,18 @@ for (const plate of plateTypes) {
   button.textContent = `+ ${plate.weight} lb`;
   button.setAttribute('aria-label', `Add ${plate.weight} pounds to each side`);
   button.style.setProperty('--plate-color', plate.color);
-  button.addEventListener('click', () => { if (plates.length < 8) plates.push(plate); renderBar(); });
+  button.addEventListener('click', () => { targetPounds = null; if (plates.length < 8) plates.push(plate); renderBar(); });
   $('plate-options').append(button);
 }
-$('bar-weight').addEventListener('change', renderBar);
+$('target-weight').addEventListener('change', enterTarget);
+$('target-weight').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); enterTarget(); } });
+$('bar-weight').addEventListener('change', () => { if (targetPounds !== null) loadTarget(); else renderBar(); });
 $('unit-toggle').addEventListener('click', () => {
   unit = unit === 'lb' ? 'kg' : 'lb';
   renderBar();
 });
-$('remove').addEventListener('click', () => { plates.pop(); renderBar(); });
-$('clear').addEventListener('click', () => { plates = []; renderBar(); });
+$('remove').addEventListener('click', () => { targetPounds = null; plates.pop(); renderBar(); });
+$('clear').addEventListener('click', () => { targetPounds = null; plates = []; renderBar(); });
 renderTimer();
 renderBar();
 

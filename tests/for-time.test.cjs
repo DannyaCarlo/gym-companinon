@@ -450,3 +450,58 @@ test('camera refuses an existing workout and releases a cancelled start without 
   assert.equal(app.get('clock-round').textContent, 'R2');
   app.camera.finish(); assert.equal(app.camera.snapshot().phase, 'finished');
 });
+
+
+function enterWeight(app, value) {
+  app.get('target-weight').value = String(value);
+  app.get('target-weight').events.change();
+}
+test('direct target entry loads largest-first balanced pairs and reports per-side plates', () => {
+  const app = setup(); enterWeight(app, 155);
+  assert.equal(app.get('total').textContent, '155');
+  assert.equal(app.get('target-message').hidden, true);
+  assert.equal(app.get('plates-per-side').textContent, 'Per side: 1 × 45 lb + 1 × 10 lb');
+  for (const side of ['left-plates','right-plates']) assert.deepEqual(app.get(side).children.map(p => p.textContent), ['45','10']);
+});
+test('unmatched and below-bar targets show the closest load; ties use the lighter load', () => {
+  const app = setup(); enterWeight(app, 154.5);
+  assert.equal(app.get('total').textContent, '154');
+  assert.match(app.get('target-message').textContent, /Closest achievable: 154 lb/);
+  enterWeight(app, 20);
+  assert.equal(app.get('total').textContent, '45');
+  assert.match(app.get('target-message').textContent, /below/);
+  enterWeight(app, 45); assert.equal(app.get('target-message').hidden, true);
+});
+test('kg targets use existing pound equipment and preserve weight across unit changes', () => {
+  const app = setup(); app.tap('unit-toggle'); enterWeight(app, 100);
+  assert.equal(app.get('total').textContent, '99.79');
+  assert.match(app.get('target-message').textContent, /Closest achievable: 99.79 kg/);
+  app.tap('unit-toggle'); assert.equal(app.get('total').textContent, '220');
+  assert.equal(app.get('target-weight').value, '220.46');
+  app.tap('unit-toggle'); assert.equal(app.get('target-weight').value, '100');
+});
+test('manual additions, removal and clear synchronize the editable weight', () => {
+  const app = setup(); enterWeight(app, 135);
+  app.get('plate-options').children[4].events.click();
+  assert.equal(app.get('target-weight').value, '155');
+  app.tap('remove'); assert.equal(app.get('target-weight').value, '135');
+  app.tap('clear'); assert.equal(app.get('target-weight').value, '45');
+});
+test('bar changes recalculate a direct target and invalid input leaves the load intact', () => {
+  const app = setup(); enterWeight(app, 155);
+  app.get('bar-weight').value = '35'; app.get('bar-weight').events.change();
+  assert.equal(app.get('total').textContent, '155');
+  assert.match(app.get('plates-per-side').textContent, /1 × 45 lb \+ 1 × 15 lb/);
+  for (const bad of ['', '-5', 'abc', 'Infinity']) {
+    enterWeight(app, bad); assert.equal(app.get('total').textContent, '155');
+    assert.equal(app.get('target-weight').attrs['aria-invalid'], 'true');
+  }
+});
+test('targets respect eight plates per side and find bounded nearest combinations', () => {
+  const app = setup(); enterWeight(app, 1000);
+  assert.equal(app.get('total').textContent, '765');
+  assert.equal(app.get('left-plates').children.length, 8);
+  assert.match(app.get('target-message').textContent, /Closest achievable: 765 lb/);
+  enterWeight(app, 756); assert.equal(app.get('total').textContent, '765');
+  enterWeight(app, 755); assert.equal(app.get('total').textContent, '745');
+});
