@@ -6,8 +6,9 @@
   <meta name="theme-color" content="#151718">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261102-clear-weight">
-  <script src="app.js?v=20261102-clear-weight" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261102-centered-target">
+  <script src="app.js?v=20261102-fit-screen" defer></script>
+  <script src="plate-panel.js?v=20261102-plate-panel" defer></script>
   <script src="wod-cam.js?v=20261102-clear-weight" defer></script>
 </head>
 <body>
@@ -46,7 +47,7 @@
           <div><label for="interval-seconds">Seconds</label><input id="interval-seconds" type="number" min="0" max="59" step="1" value="0" inputmode="numeric" aria-describedby="interval-error"></div>
         </div>
         <p id="interval-error" class="form-error" role="alert" hidden></p>
-        <div class="cap-fields"><div><label for="emom-rounds">Number of rounds</label><input id="emom-rounds" type="number" min="1" max="999" step="1" value="10" inputmode="numeric" aria-describedby="emom-error"></div></div>
+        <div class="cap-fields"><div><label for="emom-rounds">Rounds</label><input id="emom-rounds" type="number" min="1" max="999" step="1" value="10" inputmode="numeric" aria-describedby="emom-error"></div></div>
         <p id="emom-error" class="form-error" role="alert" hidden></p>
       </div>
       <p id="timer-status" role="status">Ready · 10-second preparation countdown</p>
@@ -74,9 +75,13 @@
       <p id="plates-per-side" class="center"></p>
       <p id="breakdown" class="center">45 lb bar + 0 lb per side × 2</p>
       <p id="conversion-note" class="center" hidden>Same equipment, converted to kg. Values rounded to 2 decimals.</p>
-      <p class="plate-heading">Add plates <span>Each tap adds one per side</span></p>
-      <div id="plate-options" class="plate-options"></div>
-      <div class="controls secondary"><button id="remove" disabled>Remove last pair</button><button id="clear" disabled>Clear plates</button></div>
+      <div class="controls plate-actions"><button id="plate-toggle" class="primary" type="button" aria-expanded="false" aria-controls="plate-panel">Add plates <span class="plate-arrow" aria-hidden="true">⌄</span></button><button id="remove" aria-label="Undo last plate pair" disabled>Undo</button><button id="clear" aria-label="Clear plates" disabled>Clear</button></div>
+      <div id="plate-panel" role="region" aria-labelledby="plate-panel-title" hidden>
+        <div class="plate-panel-heading"><h3 id="plate-panel-title">Choose plates</h3><button id="plate-close" type="button" aria-label="Close plate panel">Close ×</button></div>
+        <div class="sheet-summary" aria-live="polite"><strong id="sheet-total"></strong><p id="sheet-plates"></p></div>
+        <p>Each tap adds a matching pair. Up to 8 per side.</p>
+        <div id="plate-options" class="plate-options"></div>
+      </div>
     </section>
     <section id="cam-tool" class="card" aria-labelledby="cam-title" hidden>
       <div class="cam-top"><button id="cam-close" type="button" aria-label="Close WOD Cam">&#10005; Close</button><h2 id="cam-title">WOD Cam</h2><span id="cam-recording" hidden><span class="record-dot"></span> REC <span id="cam-elapsed">00:00</span></span></div>

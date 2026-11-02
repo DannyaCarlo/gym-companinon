@@ -424,7 +424,7 @@ function renderBar() {
   $('target-unit').textContent = unit === 'lb' ? 'lbs' : 'kgs';
   const mismatch = targetPounds !== null && Math.abs(targetPounds - actual) > 1e-7;
   $('target-message').hidden = !mismatch;
-  $('target-message').textContent = mismatch ? `${targetPounds < bar ? 'Target is below the selected bar’s weight.' : 'That target cannot be loaded exactly with these plates (up to 8 per side).'} Closest achievable: ${displayWeight(actual)} ${unit}.` : '';
+  $('target-message').textContent = mismatch ? `${targetPounds < bar ? 'Target is below the selected bar’s weight.' : 'Target cannot be matched exactly.'} Closest achievable: ${displayWeight(actual)} ${unit}.${targetPounds > bar + maxPlatesPerSide * 90 ? " Limit: 8 plates per side." : ""}` : '';
   const ordered = [...plates].sort((a, b) => b.weight - a.weight);
   const counts = new Map();
   for (const p of ordered) counts.set(p.weight, (counts.get(p.weight) || 0) + 1);
@@ -445,6 +445,7 @@ function renderBar() {
       element.className = 'plate';
       element.style.backgroundColor = plate.color;
       element.style.height = `${plate.height}px`;
+      element.style.setProperty('--plate-height', plate.height);
       element.textContent = displayWeight(plate.weight);
       element.style.fontSize = unit === 'kg' ? '8px' : '10px';
       $(side).append(element);
@@ -456,7 +457,7 @@ function renderBar() {
   // Keep labels readable on narrow phone screens.
   document.querySelectorAll('#plate-options button').forEach((button, index) => {
     button.disabled = plates.length >= 8;
-    button.textContent = `+ ${displayWeight(plateTypes[index].weight)} ${unit}`;
+    button.textContent = `+${displayWeight(plateTypes[index].weight)} ${unit}`;
     button.setAttribute('aria-label', `Add ${displayWeight(plateTypes[index].weight)} ${unit} to each side`);
   });
 }
