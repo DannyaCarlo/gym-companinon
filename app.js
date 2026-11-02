@@ -392,15 +392,19 @@ function enterTarget() {
   targetPounds = unit === 'kg' ? number / 0.45359237 : number;
   loadTarget();
 }
+function sizeTargetInput() {
+  $('target-weight').style.setProperty('--weight-characters', Math.max(1, $('target-weight').value.length));
+}
 function renderBar() {
   const bar = Number($('bar-weight').value);
   const perSide = plates.reduce((sum, plate) => sum + plate.weight, 0);
   $('total').textContent = displayWeight(bar + 2 * perSide);
   const actual = bar + 2 * perSide;
   $('target-weight').value = displayWeight(targetPounds ?? actual);
+  sizeTargetInput();
   $('target-weight').setAttribute('aria-invalid', 'false');
   $('target-weight').setAttribute('aria-label', `Target weight in ${unit === 'lb' ? 'pounds' : 'kilograms'}`);
-  $('target-unit').textContent = unit;
+  $('target-unit').textContent = unit === 'lb' ? 'lbs' : 'kgs';
   const mismatch = targetPounds !== null && Math.abs(targetPounds - actual) > 1e-7;
   $('target-message').hidden = !mismatch;
   $('target-message').textContent = mismatch ? `${targetPounds < bar ? 'Target is below the selected bar’s weight.' : 'That target cannot be loaded exactly with these plates (up to 8 per side).'} Closest achievable: ${displayWeight(actual)} ${unit}.` : '';
@@ -448,6 +452,7 @@ for (const plate of plateTypes) {
   $('plate-options').append(button);
 }
 $('target-weight').addEventListener('change', enterTarget);
+$('target-weight').addEventListener('input', sizeTargetInput);
 $('target-weight').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); enterTarget(); } });
 $('bar-weight').addEventListener('change', () => { if (targetPounds !== null) loadTarget(); else renderBar(); });
 $('unit-toggle').addEventListener('click', () => {
