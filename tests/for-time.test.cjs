@@ -383,12 +383,12 @@ test('digital round counter shows R0 during preparation, advances, holds and res
   app.mode('for-time'); assert.equal(app.get('clock-round').hidden, true);
 });
 
-test('tool chooser starts closed, shows only one tool, and keeps selection on repeated taps', () => {
+test('bottom navigation opens Timer first, shows one page, and keeps selection on repeated taps', () => {
   const app = setup();
-  assert.equal(app.get('timer-tool').hidden, true);
+  assert.equal(app.get('timer-tool').hidden, false);
   assert.equal(app.get('bar-tool').hidden, true);
-  assert.equal(app.get('tool-prompt').hidden, false);
-  assert.equal(app.get('choose-timer').attrs['aria-expanded'], 'false');
+  assert.equal(app.get('tool-prompt').hidden, true);
+  assert.equal(app.get('choose-timer').attrs['aria-expanded'], 'true');
   app.tap('choose-timer');
   assert.equal(app.get('timer-tool').hidden, false);
   assert.equal(app.get('bar-tool').hidden, true);

@@ -3,24 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#100c16">
+  <meta name="theme-color" content="#151718">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261101-fullscreen-cam">
-  <script src="app.js?v=20261101-fullscreen-cam" defer></script>
-  <script src="wod-cam.js?v=20261101-fullscreen-cam" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261101-charcoal">
+  <script src="app.js?v=20261101-charcoal" defer></script>
+  <script src="wod-cam.js?v=20261101-charcoal" defer></script>
 </head>
 <body>
   <main>
-    <header><span class="eyebrow">YOUR TRAINING PARTNER</span><h1>Gym Companion<span>.</span></h1><p>Set your pace. Load your bar.</p></header>
-    <div class="tool-switcher" role="group" aria-label="Choose a tool">
-      <button id="choose-timer" type="button" aria-controls="timer-tool" aria-expanded="false" aria-pressed="false">Workout Timer</button>
-      <button id="choose-bar" type="button" aria-controls="bar-tool" aria-expanded="false" aria-pressed="false">Load Your Bar</button>
-      <button id="choose-cam" type="button" aria-controls="cam-tool" aria-expanded="false" aria-pressed="false">WOD Cam</button>
-    </div>
+    <header><h1>Gym Companion</h1></header>
+    <nav class="tool-switcher" aria-label="Main navigation">
+      <button id="choose-timer" type="button" aria-controls="timer-tool" aria-expanded="false" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M9 2h6M12 2v4m6 1 2-2M12 10v5l3 2"/></svg><span>Timer</span></button>
+      <button id="choose-bar" type="button" aria-controls="bar-tool" aria-expanded="false" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9v6m4-10v14m3-12v10M9 12h6m0-5v10m3-12v14m4-10v6"/></svg><span>Load Bar</span></button>
+      <button id="choose-cam" type="button" aria-controls="cam-tool" aria-expanded="false" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg><span>WOD Cam</span></button>
+    </nav>
     <p id="tool-prompt" class="center">Choose a tool to get started.</p>
     <section id="timer-tool" class="card" aria-labelledby="timer-title" hidden>
-      <div class="section-heading"><h2 id="timer-title">Workout timer</h2><span id="timer-direction" class="tag">COUNT UP</span></div>
+      <div class="section-heading"><h2 id="timer-title"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M9 2h6M12 2v4m6 1 2-2M12 10v5l3 2"/></svg>Workout Timer</h2><span id="timer-direction" class="tag">COUNT UP</span></div>
       <label for="workout-mode">Workout mode</label>
       <select id="workout-mode"><option value="for-time">For Time</option><option value="amrap">AMRAP</option><option value="emom">EMOM</option></select>
       <p id="mode-help" class="mode-help">Count up until you finish, or set a time cap.</p>
@@ -63,7 +63,7 @@
       <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="true">Sound: On</button>
     </section>
     <section id="bar-tool" class="card" aria-labelledby="bar-title" hidden>
-      <div class="section-heading"><h2 id="bar-title">Load your bar</h2><button id="unit-toggle" class="unit-toggle" type="button" aria-label="Switch to kilograms" aria-pressed="false">POUNDS ⇄</button></div>
+      <div class="section-heading"><h2 id="bar-title"><svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9v6m4-10v14m3-12v10M9 12h6m0-5v10m3-12v14m4-10v6"/></svg>Load Your Bar</h2><button id="unit-toggle" class="unit-toggle" type="button" aria-label="Switch to kilograms" aria-pressed="false">POUNDS ⇄</button></div>
       <label for="bar-weight">Bar weight</label>
       <select id="bar-weight"><option value="45">45 lb bar</option><option value="35">35 lb bar</option><option value="15">15 lb bar</option></select>
       <div class="rack" role="img" aria-label="45 pound bar with no plates" id="rack"><div class="upright left"></div><div class="upright right"></div><div class="bar"></div><div id="left-plates" class="plates left-plates"></div><div id="right-plates" class="plates right-plates"></div></div>
@@ -104,7 +104,7 @@
         <p class="mode-help">Check the timer and sound in this preview before saving. A new recording will replace this preview.</p>
       </div>
     </section>
-    <footer>One set at a time.</footer>
+
   </main>
 </body>
 </html>

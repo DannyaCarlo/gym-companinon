@@ -20,9 +20,12 @@ const plateTypes = [
 const $ = (id) => document.getElementById(id);
 let cameraOwnsTimer = false;
 let recordingAudioDestination = null;
+let selectedPage = null;
 // Hide panels without rebuilding them, preserving each tool's current state.
 function selectTool(selected) {
   if (cameraOwnsTimer && selected !== 'cam') return;
+  const changed = selectedPage !== selected;
+  selectedPage = selected;
   for (const [tool, button] of [['timer', 'choose-timer'], ['bar', 'choose-bar'], ['cam', 'choose-cam']]) {
     const open = selected === tool;
     $(`${tool}-tool`).hidden = !open;
@@ -31,11 +34,12 @@ function selectTool(selected) {
   }
   $('tool-prompt').hidden = selected !== null;
   if (typeof window !== 'undefined') window.wodCam?.onToolChange(selected);
+  if (changed && typeof window !== 'undefined') window.scrollTo?.({ top: 0, behavior: 'instant' });
 }
 $('choose-timer').addEventListener('click', () => selectTool('timer'));
 $('choose-bar').addEventListener('click', () => selectTool('bar'));
 $('choose-cam').addEventListener('click', () => selectTool('cam'));
-selectTool(null);
+selectTool('timer');
 let soundEnabled = true;
 let audioContext;
 let lastCountdownSecond = null;
