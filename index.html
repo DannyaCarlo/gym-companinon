@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#151718">
   <title>Gym Companion</title>
   <link rel="preload" href="assets/fonts/DSEG7Classic-Bold.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20261103-larger-visuals">
+  <link rel="stylesheet" href="styles.css?v=20261103-camera-awake">
   <script src="app.js?v=20261102-fit-screen" defer></script>
   <script src="plate-panel.js?v=20261102-plate-panel" defer></script>
-  <script src="wod-cam.js?v=20261102-clear-weight" defer></script>
+  <script src="wod-cam.js?v=20261103-camera-awake" defer></script>
 </head>
 <body>
   <main>
@@ -95,7 +95,7 @@
       <p class="mode-help">Recording includes the start delay, then continues into your workout. The delay replaces preparation. Sound follows your timer settings.</p>
       <p class="mode-help">Keep this page open and your screen unlocked while recording. Videos stay on this device; save them before closing or reloading.</p>
       </div>
-      <p id="cam-status" role="status">Enable your camera and microphone to preview your workout.</p>
+      <div class="cam-status-area"><p id="cam-status" role="status">Enable your camera and microphone to preview your workout.</p><p id="cam-awake" role="status" hidden></p></div>
       <p id="cam-error" class="form-error" role="alert" hidden></p>
       <video id="cam-source" class="cam-source" autoplay muted playsinline aria-hidden="true" tabindex="-1"></video>
       <canvas id="cam-canvas" class="cam-canvas" width="720" height="1280" role="img" aria-label="Live camera preview with workout timer" hidden></canvas>

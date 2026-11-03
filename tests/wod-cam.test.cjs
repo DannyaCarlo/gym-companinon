@@ -250,3 +250,68 @@ test('native fullscreen rejection retains the viewport camera and Close exits it
   await app.click('cam-close');
   assert(!app.classes.has('camera-open'));
 });
+
+test('wake lock follows preview visibility and releases when leaving camera', async () => {
+  const app = setup(); const locks = [];
+  app.navigator.wakeLock = { request: async type => {
+    assert.equal(type, 'screen');
+    const lock = { released: false, addEventListener(n, f) { this.listener = f; }, async release() { this.released = true; this.listener?.(); } };
+    locks.push(lock); return lock;
+  } };
+  app.host.wodCam.onToolChange('cam');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(locks.length, 1);
+  assert.match(app.get('cam-awake').textContent, /active/);
+  app.document.hidden = true; app.documentEvents.visibilitychange();
+  assert(locks[0].released);
+  app.document.hidden = false; app.documentEvents.visibilitychange();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(locks.length, 2);
+  assert.equal(app.stats().permissionRequests, 1);
+  app.host.wodCam.onToolChange('bar');
+  assert(locks[1].released);
+});
+
+test('unsupported or denied wake lock does not prevent recording', async () => {
+  for (const denied of [false, true]) {
+    const app = setup();
+    if (denied) app.navigator.wakeLock = { request: async () => { throw new Error('Denied'); } };
+    app.host.wodCam.onToolChange('cam');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.match(app.get('cam-awake').textContent, /manually/);
+    await app.click('cam-record');
+    assert.equal(app.stats().recorder.state, 'recording');
+    app.document.hidden = true; app.documentEvents.visibilitychange();
+    assert.equal(app.stats().recorder.state, 'inactive');
+    assert.equal(app.get('cam-result').hidden, false);
+    assert.match(app.get('cam-error').textContent, /hidden or the screen was locked/);
+  }
+});
+
+test('a wake lock resolved after closing is immediately released', async () => {
+  const app = setup(); let resolveLock;
+  app.navigator.wakeLock = { request: () => new Promise(resolve => { resolveLock = resolve; }) };
+  app.host.wodCam.onToolChange('cam');
+  await new Promise(resolve => setImmediate(resolve));
+  app.host.wodCam.onToolChange('bar');
+  const lock = { released: false, async release() { this.released = true; } };
+  resolveLock(lock);
+  await new Promise(resolve => setImmediate(resolve));
+  assert(lock.released);
+  assert.equal(app.get('cam-awake').hidden, true);
+});
+
+test('rotation changes frame fitting without reopening camera or restarting the take', async () => {
+  const app = setup(); app.get('cam-delay').value = '0';
+  await app.click('cam-enable'); await app.click('cam-record');
+  const recorder = app.stats().recorder;
+  const width = app.get('cam-canvas').width, height = app.get('cam-canvas').height;
+  app.get('cam-source').videoWidth = 720; app.get('cam-source').videoHeight = 1280;
+  await app.tick(1000);
+  assert.equal(app.stats().recorder, recorder);
+  assert.equal(recorder.startCalls, 1);
+  assert.equal(app.stats().permissionRequests, 1);
+  assert.equal(app.get('cam-canvas').width, width);
+  assert.equal(app.get('cam-canvas').height, height);
+  assert.equal(recorder.state, 'recording');
+});

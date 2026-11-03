@@ -12,6 +12,49 @@
   let countdownEnd = 0, lastSecond = null, themeColor = '#ff9a3c';
   let stoppedText = '';
   let facing = 'environment', cameraCount = 0, recordingStarted = 0, cameraOpen = false;
+  let wakeLock = null, wakeRequest = null, wakeEpoch = 0;
+  const needsWakeLock = () => cameraOpen && !!input && !document.hidden && state !== 'idle';
+  function wakeStatus(text = '') {
+    el('cam-awake').textContent = text;
+    el('cam-awake').hidden = !text;
+  }
+  function releaseWakeLock() {
+    wakeEpoch++;
+    const lock = wakeLock;
+    wakeLock = null;
+    if (lock) Promise.resolve(lock.release()).catch(() => {});
+    wakeStatus();
+  }
+  async function requestWakeLock() {
+    if (!needsWakeLock() || wakeLock || wakeRequest) return;
+    if (!navigator.wakeLock?.request) {
+      wakeStatus('Keep screen awake manually · automatic wake lock unavailable.');
+      return;
+    }
+    const epoch = wakeEpoch;
+    const request = Promise.resolve().then(() => navigator.wakeLock.request('screen'));
+    wakeRequest = request;
+    try {
+      const lock = await request;
+      if (epoch !== wakeEpoch || !needsWakeLock()) {
+        await lock.release();
+        return;
+      }
+      wakeLock = lock;
+      wakeStatus('Screen stay-awake active');
+      lock.addEventListener('release', () => {
+        if (wakeLock !== lock) return;
+        wakeLock = null;
+        wakeStatus(needsWakeLock() ? 'Stay-awake released · keep screen awake manually.' : '');
+      });
+    } catch (_) {
+      if (epoch === wakeEpoch && needsWakeLock()) wakeStatus('Stay-awake unavailable · keep screen awake manually.');
+    } finally {
+      if (wakeRequest === request) wakeRequest = null;
+      // A pending request may finish after a close/reopen or visibility change.
+      if (epoch !== wakeEpoch && needsWakeLock()) requestWakeLock();
+    }
+  }
   try { if (localStorage.getItem('wod-camera-facing') === 'user') facing = 'user'; } catch (_) {}
 
   function enterCamera() {
@@ -28,6 +71,7 @@
   }
   function exitCamera() {
     cameraOpen = false;
+    releaseWakeLock();
     document.body.classList.remove('camera-open');
     for (const node of document.querySelectorAll('main > :not(#cam-tool)')) node.inert = false;
     if (document.fullscreenElement === el('cam-tool')) return document.exitFullscreen?.().catch(() => {});
@@ -81,6 +125,7 @@
       .find(type => MediaRecorder.isTypeSupported(type));
   }
   function releaseMedia() {
+    releaseWakeLock();
     cancelAnimationFrame(frameId);
     clearTimeout(stopTimeout);
     for (const stream of [input, canvasStream, mixedStream]) stream?.getTracks().forEach(track => track.stop());
@@ -210,6 +255,7 @@
       });
       canvas.hidden = false;
       state = 'preview'; refresh();
+      requestWakeLock();
       requestNativeFullscreen();
       status('Camera ready. Choose a delay and corner, then tap Record.');
       renderCamera();
@@ -227,6 +273,7 @@
   }
   async function record() {
     if (state !== 'preview') return;
+    requestWakeLock();
     error('');
     try { clock.claim(); claimed = true; }
     catch (failure) { error(failure.message); return; }
@@ -296,7 +343,7 @@
     draw(clock.snapshot().text);
     refresh(); status('Recording · Timer and microphone audio are included.');
   }
-  function stopRecording() {
+  function stopRecording(immediate = false) {
     if (['opening', 'preparing', 'starting'].includes(state)) {
       closeCamera(); status('Start cancelled. No video was recorded.'); return;
     }
@@ -308,10 +355,12 @@
     state = 'stopping'; refresh(); status('Finishing your video…');
     draw(stoppedText);
     // Keep the final frame and completion tone in the file before closing the recorder.
-    stopTimeout = setTimeout(() => {
+    const finish = () => {
       if (recorder?.state !== 'inactive') recorder.stop();
       else finishFile();
-    }, 450);
+    };
+    if (immediate === true) finish();
+    else stopTimeout = setTimeout(finish, 450);
   }
   function finishFile() {
     const type = recorder?.mimeType || chunks[0]?.type || 'video/webm';
@@ -362,11 +411,19 @@
     catch (failure) { if (failure.name !== 'AbortError') error('Sharing is unavailable. Use Save video instead.'); }
   });
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) return;
+    if (!document.hidden) {
+      requestWakeLock();
+      if (state === 'preview') status('Camera ready. Recording is not running.');
+      return;
+    }
+    releaseWakeLock();
     if (busy()) {
       error('Recording stopped because the page was hidden or the screen was locked. Keep it visible for the next take.');
-      stopRecording();
-    } else if (state === 'preview' || state === 'opening') closeCamera();
+      // Do not depend on a delayed timer after the OS suspends the page.
+      if (state === 'stopping') { clearTimeout(stopTimeout); if (recorder?.state !== 'inactive') recorder.stop(); }
+      else stopRecording(true);
+    } else if (state === 'opening') { closeCamera(); status('Camera opening interrupted. Tap Enable camera to retry.'); }
+    else if (state === 'preview') status('Preview suspended while the app is hidden. Recording is not running.');
   });
   document.addEventListener('keydown', event => {
     if (!cameraOpen) return;
